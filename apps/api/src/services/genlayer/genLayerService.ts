@@ -150,8 +150,17 @@ export class GenLayerService {
       });
 
       console.log(`[GenLayer] register_protocol tx: ${txHash} status: ${(receipt as any)?.txStatus}`);
+      // Mark in DB so future ensureProtocolRegistered calls skip the contract read
+      await db.update(protocols).set({ onChainRegistered: true }).where(eq(protocols.id, protocol.id)).catch(() => {});
       return txHash as string;
-    } catch (err) {
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      if (msg.includes('already registered')) {
+        console.log(`[GenLayer] register_protocol: protocol ${protocol.id} already on-chain, skipping`);
+        // Mark in DB so future calls skip the contract read
+        await db.update(protocols).set({ onChainRegistered: true }).where(eq(protocols.id, protocol.id)).catch(() => {});
+        return 'already_registered';
+      }
       console.error('[GenLayer] register_protocol failed:', err);
       return null;
     }
@@ -249,18 +258,24 @@ export class GenLayerService {
   // ── Ensure protocol exists on-chain before analysis ────────────────────
 
   private async ensureProtocolRegistered(protocol: typeof protocols.$inferSelect): Promise<void> {
+    // Fast path: DB flag means we already know it's on-chain
+    if ((protocol as any).onChainRegistered) return;
+
     try {
       const exists = await this.client.readContract({
         address:      CONTRACT_ADDRESS,
         functionName: 'is_protocol_registered',
         args:         [protocol.id],
-        stateStatus:  'accepted',
+        stateStatus:  'finalized',   // was 'accepted' — finalized is authoritative
       });
-      if (!exists) {
-        await this.registerProtocolOnChain(protocol);
+      if (exists) {
+        // Update DB flag so we skip this read next time
+        await db.update(protocols).set({ onChainRegistered: true }).where(eq(protocols.id, protocol.id)).catch(() => {});
+        return;
       }
+      await this.registerProtocolOnChain(protocol);
     } catch {
-      // If read fails, attempt registration anyway
+      // If read fails, attempt registration; registerProtocolOnChain handles "already registered" gracefully
       await this.registerProtocolOnChain(protocol);
     }
   }

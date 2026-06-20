@@ -44,6 +44,29 @@ export async function protocolRoutes(app: FastifyInstance) {
     return reply.status(201).send(protocol);
   });
 
+  // GET /protocols/registered — all protocols tracked as on-chain registered in DB
+  app.get('/registered', async (req) => {
+    const { eq: eqOp } = await import('drizzle-orm');
+    const rows = await db.select({
+      id: protocols.id,
+      name: protocols.name,
+      chain: protocols.chain,
+      category: protocols.category,
+      contractAddress: protocols.contractAddress,
+      riskScore: protocols.riskScore,
+      onChainRegistered: protocols.onChainRegistered,
+      lastAnalyzedAt: protocols.lastAnalyzedAt,
+      createdAt: protocols.createdAt,
+    }).from(protocols)
+      .where(eqOp(protocols.userId, req.user.id))
+      .orderBy(desc(protocols.createdAt));
+    return {
+      total: rows.length,
+      registeredOnChain: rows.filter(r => r.onChainRegistered).length,
+      protocols: rows,
+    };
+  });
+
   // GET /protocols/contract-stats — on-chain FortiChain Sentinel stats
   app.get('/contract-stats', async (_req, reply) => {
     const genLayer = new GenLayerService();

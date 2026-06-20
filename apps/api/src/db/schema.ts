@@ -52,10 +52,11 @@ export const protocols = pgTable('protocols', {
   monitoringActive: boolean('monitoring_active').default(true),
   webhookUrl:      varchar('webhook_url', { length: 500 }),
   alertEmail:      varchar('alert_email', { length: 255 }),
-  riskScore:       integer('risk_score').default(0),
-  lastAnalyzedAt:  timestamp('last_analyzed_at'),
-  createdAt:       timestamp('created_at').defaultNow().notNull(),
-  updatedAt:       timestamp('updated_at').defaultNow().notNull(),
+  riskScore:          integer('risk_score').default(0),
+  onChainRegistered:  boolean('on_chain_registered').default(false),
+  lastAnalyzedAt:     timestamp('last_analyzed_at'),
+  createdAt:          timestamp('created_at').defaultNow().notNull(),
+  updatedAt:          timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
   userIdx: index('protocols_user_idx').on(t.userId),
 }));
