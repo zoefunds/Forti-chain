@@ -92,7 +92,12 @@ export default function LoginPage() {
                 className="fc-input" placeholder="you@protocol.io" />
             </div>
             <div>
-              <label className="fc-label block mb-1.5">Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="fc-label">Password</label>
+                <Link href="/auth/forgot-password" className="text-2xs text-[#8ca4ac] hover:text-[#217eaa] font-mono transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input type={show ? 'text' : 'password'} required value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
