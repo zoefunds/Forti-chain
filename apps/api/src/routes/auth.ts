@@ -101,6 +101,7 @@ export async function authRoutes(app: FastifyInstance) {
     const [user] = await db.select({
       id: users.id, email: users.email, passwordHash: users.passwordHash,
       walletAddress: users.walletAddress, subscriptionTier: users.subscriptionTier,
+      role: users.role,
       encryptedPrivateKey: users.encryptedPrivateKey, walletSalt: users.walletSalt,
       serverEncryptedKey: users.serverEncryptedKey,
     }).from(users).where(eq(users.email, email)).limit(1) as any[];
@@ -127,7 +128,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     reply.setCookie('access_token', token, { httpOnly: true, secure: false, sameSite: 'lax', path: '/' });
     return {
-      user: { id: user.id, email: user.email, walletAddress: user.walletAddress, subscriptionTier: user.subscriptionTier },
+      user: { id: user.id, email: user.email, walletAddress: user.walletAddress, subscriptionTier: user.subscriptionTier, role: user.role },
       refresh,
     };
   });
@@ -193,7 +194,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   // GET /api/v1/auth/me
   app.get('/me', { preHandler: authenticate }, async (req) => {
-    const { passwordHash, encryptedPrivateKey, encryptedMnemonic, ...safe } = req.user;
+    const { passwordHash, encryptedPrivateKey, encryptedMnemonic, serverEncryptedKey, walletSalt, ...safe } = req.user as any;
     return { user: safe };
   });
 }
