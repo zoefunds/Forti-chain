@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Shield, LayoutDashboard, Server, Bell, Activity,
-  Key, Wallet, Settings, LogOut, Menu, X, User,
+  Key, Wallet, Settings, LogOut, Menu, X, User, Crown,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { usePolling } from '@/lib/usePolling';
@@ -23,6 +23,7 @@ const NAV = [
 function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
 
   const addr = user?.walletAddress
     ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`
@@ -66,6 +67,18 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
             </Link>
           );
         })}
+        {isAdmin && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <span className="text-2xs font-mono uppercase tracking-widest text-[#8ca4ac]/50">Admin</span>
+            </div>
+            <Link href="/dashboard/admin" onClick={onClose}
+              className={pathname.startsWith('/dashboard/admin') ? 'nav-item-active' : 'nav-item'}>
+              <Crown className="w-4 h-4 flex-shrink-0 text-[#f59e0b]" />
+              <span>Admin Panel</span>
+            </Link>
+          </>
+        )}
       </nav>
 
       {/* User footer */}
@@ -104,7 +117,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  usePolling(refreshBalance, 120_000, !!user);
+  usePolling(refreshBalance, 10_000, !!user);
 
   const genBalance = parseFloat(user?.genBalanceCache ?? '0');
 

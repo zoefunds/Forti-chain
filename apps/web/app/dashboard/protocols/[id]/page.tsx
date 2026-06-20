@@ -163,7 +163,7 @@ export default function ProtocolDetailPage() {
   }, [id, router]);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 30_000);
+  usePolling(load, 10_000);
 
   const analyze = async () => {
     setAnalyzing(true); setAnalyzeError('');

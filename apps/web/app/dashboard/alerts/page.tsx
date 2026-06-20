@@ -27,7 +27,7 @@ export default function AlertsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 30_000);
+  usePolling(load, 10_000);
 
   const delivered = alerts.filter(a => a.delivered).length;
   const failed = alerts.filter(a => !a.delivered).length;

@@ -8,6 +8,7 @@ export interface User {
   walletAddress: string;
   subscriptionTier: string;
   genBalanceCache: string;
+  role: string;
 }
 
 interface AuthState {

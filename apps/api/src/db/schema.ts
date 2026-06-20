@@ -15,6 +15,7 @@ export const users = pgTable('users', {
   walletSalt:           varchar('wallet_salt', { length: 64 }).notNull(),
   serverEncryptedKey:   text('server_encrypted_key'),
   genBalanceCache:      decimal('gen_balance_cache', { precision: 36, scale: 18 }).default('0'),
+  role:                 varchar('role', { length: 20 }).default('user').notNull(),
   subscriptionTier:     varchar('subscription_tier', { length: 20 }).default('free'),
   emailVerified:        boolean('email_verified').default(false),
   createdAt:            timestamp('created_at').defaultNow().notNull(),

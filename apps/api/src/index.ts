@@ -14,6 +14,7 @@ import { walletRoutes } from './routes/wallet.js';
 import { intelligenceRoutes } from './routes/intelligence.js';
 import { settingsRoutes } from './routes/settings.js';
 import { publicStatsRoutes } from './routes/publicStats.js';
+import { adminRoutes } from './routes/admin.js';
 import { startWorkers } from './workers/index.js';
 
 const app = Fastify({ logger: { transport: { target: 'pino-pretty' } } });
@@ -46,6 +47,7 @@ await app.register(walletRoutes, { prefix: '/api/v1/wallet' });
 await app.register(intelligenceRoutes, { prefix: '/api/v1/intelligence' });
 await app.register(settingsRoutes, { prefix: '/api/v1/settings' });
 await app.register(publicStatsRoutes, { prefix: '/api/v1/stats' });
+await app.register(adminRoutes, { prefix: '/api/v1/admin' });
 
 // Start background workers
 if (env.NODE_ENV !== 'test') {

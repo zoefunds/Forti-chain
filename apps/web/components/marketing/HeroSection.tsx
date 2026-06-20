@@ -22,10 +22,10 @@ export function HeroSection() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    fetch('/api/v1/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {});
+    const load = () => fetch('/api/v1/stats').then(r => r.json()).then(setStats).catch(() => {});
+    load();
+    const id = setInterval(load, 10_000);
+    return () => clearInterval(id);
   }, []);
 
   const statCards = [

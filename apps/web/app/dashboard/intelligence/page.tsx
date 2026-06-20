@@ -37,7 +37,7 @@ export default function IntelligencePage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 30_000);
+  usePolling(load, 10_000);
 
   const sources = ['all', ...Array.from(new Set(feed.map(s => s.source)))];
   const filtered = filterSource === 'all' ? feed : feed.filter(s => s.source === filterSource);
@@ -47,7 +47,7 @@ export default function IntelligencePage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[#eeeeee]">Threat Intelligence</h1>
-          <p className="text-xs text-[#8ca4ac] mt-0.5">Global signal feed · auto-refreshes every 30s</p>
+          <p className="text-xs text-[#8ca4ac] mt-0.5">Global signal feed · auto-refreshes every 10s</p>
         </div>
         <button onClick={load} className="btn-ghost text-xs gap-1.5 border border-[#1c2229]">
           <RefreshCw className="w-3 h-3" /> Refresh

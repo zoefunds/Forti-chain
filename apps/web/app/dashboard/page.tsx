@@ -35,7 +35,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 30_000);
+  usePolling(load, 10_000);
 
   const active = protocols.filter(p => p.monitoringActive).length;
   const high = protocols.filter(p => p.riskScore >= 50).length;

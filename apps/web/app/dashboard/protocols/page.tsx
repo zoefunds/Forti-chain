@@ -95,7 +95,7 @@ export default function ProtocolsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 30_000);
+  usePolling(load, 10_000);
 
   const analyze = async (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation();
@@ -120,7 +120,7 @@ export default function ProtocolsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[#eeeeee]">Protocols</h1>
-          <p className="text-xs text-[#8ca4ac] mt-0.5">Manage and monitor your DeFi protocols · auto-refreshes every 30s</p>
+          <p className="text-xs text-[#8ca4ac] mt-0.5">Manage and monitor your DeFi protocols · auto-refreshes every 10s</p>
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary text-sm">
           <Plus className="w-4 h-4" />

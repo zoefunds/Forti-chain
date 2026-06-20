@@ -42,7 +42,7 @@ export default function WalletPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(() => { load(); refreshBalance(); }, 120_000);
+  usePolling(() => { load(); refreshBalance(); }, 10_000);
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
