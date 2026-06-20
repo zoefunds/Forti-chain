@@ -15,6 +15,7 @@ import { intelligenceRoutes } from './routes/intelligence.js';
 import { settingsRoutes } from './routes/settings.js';
 import { publicStatsRoutes } from './routes/publicStats.js';
 import { adminRoutes } from './routes/admin.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { startWorkers } from './workers/index.js';
 
 const app = Fastify({ logger: { transport: { target: 'pino-pretty' } } });
@@ -32,6 +33,12 @@ await app.register(jwt, {
 await app.register(rateLimit, {
   max: 200,
   timeWindow: '1 minute',
+  keyGenerator: (req) => {
+    // Per-user limiting when authenticated, fall back to IP
+    const user = (req as any).user;
+    if (user?.id) return `user:${user.id}`;
+    return req.ip;
+  },
 });
 
 // Health check
@@ -48,6 +55,7 @@ await app.register(intelligenceRoutes, { prefix: '/api/v1/intelligence' });
 await app.register(settingsRoutes, { prefix: '/api/v1/settings' });
 await app.register(publicStatsRoutes, { prefix: '/api/v1/stats' });
 await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+await app.register(notificationRoutes, { prefix: '/api/v1/notifications' });
 
 // Start background workers
 if (env.NODE_ENV !== 'test') {

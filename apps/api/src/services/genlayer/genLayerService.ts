@@ -6,6 +6,7 @@ import { aiJudgments, protocols, users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { env } from '../../config/env.js';
 import { AlertService } from '../alerts/alertService.js';
+import { NotificationService } from '../notifications/notificationService.js';
 import { decryptForServer } from '../wallet/encryption.js';
 
 // ---------------------------------------------------------------------------
@@ -122,6 +123,10 @@ export class GenLayerService {
     await db.update(protocols)
       .set({ riskScore: judgment.riskScore, lastAnalyzedAt: new Date() })
       .where(eq(protocols.id, protocol.id));
+
+    // Always create an in-app notification for every judgment
+    const notifService = new NotificationService();
+    await notifService.judgment(user.id, protocol.name, protocol.id, dbLevel, judgment.riskScore, saved.id).catch(() => {});
 
     if (dbLevel >= 2) {
       const alertService = new AlertService();

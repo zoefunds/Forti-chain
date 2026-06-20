@@ -122,6 +122,45 @@ export default function WalletPage() {
         </div>
       </div>
 
+      {/* GEN Top-up */}
+      <div className="fc-card p-6 space-y-4">
+        <div>
+          <h2 className="text-[#eeeeee] font-semibold text-sm">Top Up GEN Tokens</h2>
+          <p className="text-xs text-[#8ca4ac] mt-0.5">Fund your wallet to pay for on-chain AI analysis transactions on GenLayer StudioNet.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-[#0d1014] border border-[#1c2229] rounded p-4 space-y-2">
+            <p className="text-xs font-semibold text-[#eeeeee]">GenLayer StudioNet Faucet</p>
+            <p className="text-2xs text-[#8ca4ac]">Request free GEN tokens from the official StudioNet faucet. Paste your wallet address and receive test GEN instantly.</p>
+            <div className="flex items-center gap-2 mt-3">
+              <code className="text-2xs font-mono text-[#217eaa] bg-[#217eaa]/10 px-2 py-1 rounded truncate flex-1">
+                {user?.walletAddress?.slice(0, 20)}…
+              </code>
+              <button onClick={() => copy(user?.walletAddress ?? '', 'topup')} className="text-[#8ca4ac] hover:text-[#eeeeee] flex-shrink-0">
+                {copied === 'topup' ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <a
+              href="https://studio.genlayer.com/faucet"
+              target="_blank" rel="noreferrer"
+              className="btn-primary text-xs py-2 w-full text-center block mt-2"
+            >
+              Open Faucet →
+            </a>
+          </div>
+          <div className="bg-[#0d1014] border border-[#1c2229] rounded p-4 space-y-2">
+            <p className="text-xs font-semibold text-[#eeeeee]">Receive GEN Transfer</p>
+            <p className="text-2xs text-[#8ca4ac]">Share your wallet address to receive GEN from another wallet on the GenLayer network.</p>
+            <div className="mt-3 bg-[#111518] border border-[#1c2229] rounded px-3 py-2">
+              <code className="text-2xs font-mono text-[#eeeeee] break-all">{user?.walletAddress}</code>
+            </div>
+            <button onClick={() => copy(user?.walletAddress ?? '', 'addr2')} className="btn-ghost text-xs py-2 w-full mt-1">
+              {copied === 'addr2' ? 'Copied!' : 'Copy Address'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Subscription plans */}
       <div>
         <h2 className="text-[#eeeeee] font-semibold text-sm mb-4">Upgrade Plan</h2>

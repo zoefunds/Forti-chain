@@ -18,6 +18,7 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
       const [user] = await db.select().from(users)
         .where(eq(users.id, key.userId)).limit(1);
       if (!user) return reply.status(401).send({ error: 'User not found' });
+      if (user.suspended) return reply.status(403).send({ error: 'Account suspended' });
       req.user = user;
       // fire-and-forget last used update
       db.update(apiKeys).set({ lastUsedAt: new Date() })
@@ -31,6 +32,7 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
     const [user] = await db.select().from(users)
       .where(eq(users.id, payload.id)).limit(1);
     if (!user) return reply.status(401).send({ error: 'User not found' });
+    if (user.suspended) return reply.status(403).send({ error: 'Account suspended' });
     req.user = user;
   } catch {
     return reply.status(401).send({ error: 'Unauthorized' });

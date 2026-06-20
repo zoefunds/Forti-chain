@@ -1,14 +1,16 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Shield, LayoutDashboard, Server, Bell, Activity,
   Key, Wallet, Settings, LogOut, Menu, X, User, Crown,
+  CheckCircle, AlertTriangle, Info, Trash2, MailCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { usePolling } from '@/lib/usePolling';
 import { motion, AnimatePresence } from 'framer-motion';
+import { api } from '@/lib/api';
 
 const NAV = [
   { href: '/dashboard',              label: 'Overview',      icon: LayoutDashboard },
@@ -20,6 +22,162 @@ const NAV = [
   { href: '/dashboard/settings',     label: 'Settings',      icon: Settings },
 ];
 
+// ── Notification Bell ─────────────────────────────────────────────
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  link?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const ref = useRef<HTMLDivElement>(null);
+
+  async function fetchNotifications() {
+    try {
+      const { data } = await api.get('/api/v1/notifications');
+      setUnread(data.unread ?? 0);
+      setNotifications(data.notifications ?? []);
+    } catch {}
+  }
+
+  usePolling(fetchNotifications, 10_000, true);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  async function markAllRead() {
+    try {
+      await api.patch('/api/v1/notifications/read-all');
+      setUnread(0);
+      setNotifications(n => n.map(x => ({ ...x, read: true })));
+    } catch {}
+  }
+
+  async function deleteNotif(id: string) {
+    try {
+      await api.delete(`/api/v1/notifications/${id}`);
+      setNotifications(n => {
+        const next = n.filter(x => x.id !== id);
+        setUnread(next.filter(x => !x.read).length);
+        return next;
+      });
+    } catch {}
+  }
+
+  const typeIcon: Record<string, React.ReactNode> = {
+    judgment:     <Shield className="w-3.5 h-3.5 text-[#217eaa]" />,
+    system_alert: <AlertTriangle className="w-3.5 h-3.5 text-[#f59e0b]" />,
+    email_verified: <CheckCircle className="w-3.5 h-3.5 text-[#22c55e]" />,
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="relative p-1.5 rounded border border-[#1c2229] bg-[#111518] hover:border-[#217eaa]/40 transition-colors"
+      >
+        <Bell className="w-4 h-4 text-[#8ca4ac]" />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#217eaa] text-white text-[10px] font-bold flex items-center justify-center">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="absolute right-0 top-10 w-80 bg-[#0d1014] border border-[#1c2229] rounded-lg shadow-2xl z-50 overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c2229]">
+              <span className="text-xs font-semibold text-[#eeeeee]">Notifications</span>
+              {unread > 0 && (
+                <button onClick={markAllRead} className="text-2xs text-[#217eaa] hover:text-[#eeeeee] transition-colors">
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-80 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#8ca4ac]">No notifications yet</div>
+              ) : notifications.map(n => (
+                <div key={n.id} className={`flex gap-3 px-4 py-3 border-b border-[#111518] hover:bg-[#111518] transition-colors ${!n.read ? 'bg-[#217eaa]/5' : ''}`}>
+                  <div className="mt-0.5 flex-shrink-0">
+                    {typeIcon[n.type] ?? <Info className="w-3.5 h-3.5 text-[#8ca4ac]" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-medium ${!n.read ? 'text-[#eeeeee]' : 'text-[#8ca4ac]'}`}>{n.title}</p>
+                    <p className="text-2xs text-[#8ca4ac] mt-0.5 line-clamp-2">{n.body}</p>
+                    <p className="text-2xs text-[#8ca4ac]/50 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                  </div>
+                  <button
+                    onClick={() => deleteNotif(n.id)}
+                    className="flex-shrink-0 text-[#8ca4ac]/40 hover:text-[#ef4444] transition-colors mt-0.5"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Email Verification Banner ─────────────────────────────────────
+function EmailVerificationBanner({ email }: { email: string }) {
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  async function resend() {
+    setSending(true);
+    try {
+      await api.post('/api/v1/auth/resend-verification');
+      setSent(true);
+    } catch {}
+    setSending(false);
+  }
+
+  return (
+    <div className="bg-[#f59e0b]/10 border-b border-[#f59e0b]/30 px-4 py-2 flex items-center gap-3">
+      <MailCheck className="w-4 h-4 text-[#f59e0b] flex-shrink-0" />
+      <p className="text-xs text-[#f59e0b] flex-1">
+        Please verify your email address <span className="font-medium">{email}</span> to unlock all features.
+      </p>
+      {sent ? (
+        <span className="text-xs text-[#22c55e]">Email sent!</span>
+      ) : (
+        <button
+          onClick={resend}
+          disabled={sending}
+          className="text-xs text-[#f59e0b] hover:text-[#eeeeee] font-medium transition-colors disabled:opacity-50 flex-shrink-0"
+        >
+          {sending ? 'Sending…' : 'Resend email'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────
 function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
@@ -104,6 +262,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   );
 }
 
+// ── Shell ─────────────────────────────────────────────────────────
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, fetchMe, isLoading, refreshBalance } = useAuthStore();
@@ -120,6 +279,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   usePolling(refreshBalance, 10_000, !!user);
 
   const genBalance = parseFloat(user?.genBalanceCache ?? '0');
+  const emailUnverified = user && !(user as any).emailVerified;
 
   if (isLoading) {
     return (
@@ -159,6 +319,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Email verification banner */}
+        {emailUnverified && <EmailVerificationBanner email={user?.email ?? ''} />}
+
         {/* Top bar */}
         <header className="h-12 border-b border-[#1c2229] bg-[#0d1014] flex items-center px-4 gap-3 flex-shrink-0">
           <button onClick={() => setMobileOpen(true)} className="md:hidden btn-ghost p-1.5">
@@ -178,6 +341,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <div className="px-2 py-1 rounded border border-[#1c2229]">
               <span className="fc-label capitalize">{user?.subscriptionTier ?? 'free'}</span>
             </div>
+
+            {/* Notification bell */}
+            <NotificationBell />
 
             {/* Avatar */}
             <div className="w-7 h-7 rounded-full bg-[#217eaa]/20 border border-[#217eaa]/40 flex items-center justify-center">

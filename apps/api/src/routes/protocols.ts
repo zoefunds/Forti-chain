@@ -14,6 +14,7 @@ const ProtocolSchema = z.object({
   websiteUrl: z.string().url().optional(),
   webhookUrl: z.string().url().optional(),
   alertEmail: z.string().email().optional(),
+  autoAnalyzeIntervalHours: z.number().int().min(0).max(168).optional(),
 });
 
 export async function protocolRoutes(app: FastifyInstance) {

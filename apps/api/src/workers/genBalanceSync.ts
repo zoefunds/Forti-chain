@@ -3,8 +3,10 @@ import { db } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { env } from '../config/env.js';
+import { workerHealth } from '../routes/admin.js';
 
 async function tick() {
+  workerHealth.genBalanceSync.runs++;
   try {
     if (!env.GENLAYER_RPC_URL) return;
     const allUsers = await db.select({ id: users.id, walletAddress: users.walletAddress }).from(users);
@@ -19,8 +21,10 @@ async function tick() {
         await db.update(users).set({ genBalanceCache: balanceGEN }).where(eq(users.id, user.id));
       } catch {}
     }
+    workerHealth.genBalanceSync.lastRun = new Date();
   } catch (err) {
-    console.error('GEN balance sync error:', err);
+    workerHealth.genBalanceSync.errors++;
+    console.error('[gen-balance-sync] tick error:', err);
   }
 }
 

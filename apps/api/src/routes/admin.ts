@@ -1,9 +1,29 @@
 import { FastifyInstance } from 'fastify';
 import { db } from '../db/index.js';
-import { users, protocols, aiJudgments, alertsSent, signalIngestions } from '../db/schema.js';
+import { users, protocols, aiJudgments, alertsSent, signalIngestions, notifications } from '../db/schema.js';
 import { eq, desc, sql } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
+
+// Worker health tracking (updated by workers)
+export const workerHealth: Record<string, { lastRun: Date | null; runs: number; errors: number }> = {
+  signalIngestion: { lastRun: null, runs: 0, errors: 0 },
+  analysis:        { lastRun: null, runs: 0, errors: 0 },
+  genBalanceSync:  { lastRun: null, runs: 0, errors: 0 },
+};
+
+function toCSV(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const lines = [headers.join(',')];
+  for (const row of rows) {
+    lines.push(headers.map(h => {
+      const v = String(row[h] ?? '').replace(/"/g, '""');
+      return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v}"` : v;
+    }).join(','));
+  }
+  return lines.join('\n');
+}
 
 export async function adminRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate);
@@ -11,26 +31,31 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // GET /admin/stats — platform-wide numbers
   app.get('/stats', async () => {
-    const [[userCount], [protocolCount], [judgmentCount], [alertCount], [signalCount]] =
+    const [[userCount], [protocolCount], [judgmentCount], [alertCount], [signalCount], [notifCount]] =
       await Promise.all([
         db.select({ count: sql<number>`count(*)::int` }).from(users),
         db.select({ count: sql<number>`count(*)::int` }).from(protocols),
         db.select({ count: sql<number>`count(*)::int` }).from(aiJudgments),
         db.select({ count: sql<number>`count(*)::int` }).from(alertsSent),
         db.select({ count: sql<number>`count(*)::int` }).from(signalIngestions),
+        db.select({ count: sql<number>`count(*)::int` }).from(notifications),
       ]);
 
-    // Per-tier breakdown
     const tierBreakdown = await db
       .select({ level: aiJudgments.level, count: sql<number>`count(*)::int` })
       .from(aiJudgments)
       .groupBy(aiJudgments.level);
 
-    // Subscription breakdown
     const subBreakdown = await db
       .select({ tier: users.subscriptionTier, count: sql<number>`count(*)::int` })
       .from(users)
       .groupBy(users.subscriptionTier);
+
+    const suspendedCount = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users).where(eq(users.suspended, true));
+
+    const unverifiedCount = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users).where(eq(users.emailVerified, false));
 
     return {
       users:             userCount.count,
@@ -38,18 +63,31 @@ export async function adminRoutes(app: FastifyInstance) {
       judgments:         judgmentCount.count,
       alerts:            alertCount.count,
       signals:           signalCount.count,
+      notifications:     notifCount.count,
+      suspended:         suspendedCount[0].count,
+      unverified:        unverifiedCount[0].count,
       judgmentsByTier:   tierBreakdown,
       usersBySubscription: subBreakdown,
     };
   });
 
+  // GET /admin/health — worker + system health
+  app.get('/health', async () => {
+    return {
+      api: { status: 'ok', uptime: process.uptime(), memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024) },
+      workers: workerHealth,
+      timestamp: new Date().toISOString(),
+    };
+  });
+
   // GET /admin/users — all users with per-user counts
   app.get('/users', async () => {
-    const rows = await db
+    return db
       .select({
         id:               users.id,
         email:            users.email,
         role:             users.role,
+        suspended:        users.suspended,
         walletAddress:    users.walletAddress,
         subscriptionTier: users.subscriptionTier,
         emailVerified:    users.emailVerified,
@@ -60,7 +98,6 @@ export async function adminRoutes(app: FastifyInstance) {
       })
       .from(users)
       .orderBy(desc(users.createdAt));
-    return rows;
   });
 
   // PATCH /admin/users/:id/role — promote/demote
@@ -78,6 +115,21 @@ export async function adminRoutes(app: FastifyInstance) {
     return updated;
   });
 
+  // PATCH /admin/users/:id/suspend — suspend or unsuspend
+  app.patch('/users/:id/suspend', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { suspended } = req.body as { suspended: boolean };
+    if (typeof suspended !== 'boolean') {
+      return reply.status(400).send({ error: 'suspended must be a boolean' });
+    }
+    const [updated] = await db.update(users)
+      .set({ suspended, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning({ id: users.id, email: users.email, suspended: users.suspended });
+    if (!updated) return reply.status(404).send({ error: 'User not found' });
+    return updated;
+  });
+
   // GET /admin/protocols — all protocols across all users
   app.get('/protocols', async () => {
     return db
@@ -89,6 +141,7 @@ export async function adminRoutes(app: FastifyInstance) {
         riskScore:        protocols.riskScore,
         onChainRegistered: protocols.onChainRegistered,
         monitoringActive: protocols.monitoringActive,
+        autoAnalyzeIntervalHours: protocols.autoAnalyzeIntervalHours,
         lastAnalyzedAt:   protocols.lastAnalyzedAt,
         createdAt:        protocols.createdAt,
         userId:           protocols.userId,
@@ -118,5 +171,47 @@ export async function adminRoutes(app: FastifyInstance) {
       .from(aiJudgments)
       .orderBy(desc(aiJudgments.createdAt))
       .limit(Math.min(limit, 200));
+  });
+
+  // GET /admin/export/users.csv
+  app.get('/export/users.csv', async (req, reply) => {
+    const rows = await db.select({
+      id: users.id, email: users.email, role: users.role,
+      suspended: users.suspended, subscriptionTier: users.subscriptionTier,
+      emailVerified: users.emailVerified, walletAddress: users.walletAddress,
+      createdAt: users.createdAt,
+    }).from(users).orderBy(desc(users.createdAt));
+    reply.header('Content-Type', 'text/csv');
+    reply.header('Content-Disposition', 'attachment; filename="users.csv"');
+    return toCSV(rows as any);
+  });
+
+  // GET /admin/export/protocols.csv
+  app.get('/export/protocols.csv', async (req, reply) => {
+    const rows = await db.select({
+      id: protocols.id, name: protocols.name, chain: protocols.chain,
+      category: protocols.category, riskScore: protocols.riskScore,
+      onChainRegistered: protocols.onChainRegistered,
+      userId: protocols.userId, createdAt: protocols.createdAt,
+      lastAnalyzedAt: protocols.lastAnalyzedAt,
+    }).from(protocols).orderBy(desc(protocols.createdAt));
+    reply.header('Content-Type', 'text/csv');
+    reply.header('Content-Disposition', 'attachment; filename="protocols.csv"');
+    return toCSV(rows as any);
+  });
+
+  // GET /admin/export/judgments.csv
+  app.get('/export/judgments.csv', async (req, reply) => {
+    const rows = await db.select({
+      id: aiJudgments.id, protocolId: aiJudgments.protocolId,
+      riskScore: aiJudgments.riskScore, level: aiJudgments.level,
+      consensusReached: aiJudgments.consensusReached,
+      contractCallTx: aiJudgments.contractCallTx,
+      recommendedAction: aiJudgments.recommendedAction,
+      createdAt: aiJudgments.createdAt,
+    }).from(aiJudgments).orderBy(desc(aiJudgments.createdAt)).limit(5000);
+    reply.header('Content-Type', 'text/csv');
+    reply.header('Content-Disposition', 'attachment; filename="judgments.csv"');
+    return toCSV(rows as any);
   });
 }

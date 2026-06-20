@@ -149,6 +149,8 @@ export default function ProtocolDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState('');
   const [selectedJudgment, setSelectedJudgment] = useState<any>(null);
+  const [intervalHours, setIntervalHours] = useState(0);
+  const [savingInterval, setSavingInterval] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -157,6 +159,7 @@ export default function ProtocolDetailPage() {
         api.get(`/api/v1/protocols/${id}/judgments`),
       ]);
       setProtocol(p.data);
+      setIntervalHours(p.data.autoAnalyzeIntervalHours ?? 0);
       setJudgments(j.data);
     } catch { router.push('/dashboard/protocols'); }
     finally { setLoading(false); }
@@ -229,6 +232,40 @@ export default function ProtocolDetailPage() {
               ? formatDistanceToNow(new Date(protocol.lastAnalyzedAt), { addSuffix: true })
               : 'Never'}
           </p>
+        </div>
+      </div>
+
+      {/* Auto-analyze interval */}
+      <div className="fc-card px-5 py-4 flex flex-wrap items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="fc-label mb-0.5">Auto-Analysis Interval</p>
+          <p className="text-xs text-[#8ca4ac]">Re-analyze automatically on a schedule. Set to 0 to disable.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={intervalHours}
+            onChange={e => setIntervalHours(parseInt(e.target.value))}
+            className="fc-input text-xs py-1.5 pr-8 w-36"
+          >
+            <option value={0}>Disabled</option>
+            <option value={1}>Every 1 hour</option>
+            <option value={4}>Every 4 hours</option>
+            <option value={8}>Every 8 hours</option>
+            <option value={12}>Every 12 hours</option>
+            <option value={24}>Every 24 hours</option>
+            <option value={48}>Every 48 hours</option>
+          </select>
+          <button
+            disabled={savingInterval}
+            onClick={async () => {
+              setSavingInterval(true);
+              try { await api.put(`/api/v1/protocols/${id}`, { autoAnalyzeIntervalHours: intervalHours }); await load(); } catch {}
+              setSavingInterval(false);
+            }}
+            className="btn-ghost text-xs py-1.5 px-3"
+          >
+            {savingInterval ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+          </button>
         </div>
       </div>
 

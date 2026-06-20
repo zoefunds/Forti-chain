@@ -16,8 +16,11 @@ export const users = pgTable('users', {
   serverEncryptedKey:   text('server_encrypted_key'),
   genBalanceCache:      decimal('gen_balance_cache', { precision: 36, scale: 18 }).default('0'),
   role:                 varchar('role', { length: 20 }).default('user').notNull(),
+  suspended:            boolean('suspended').default(false).notNull(),
   subscriptionTier:     varchar('subscription_tier', { length: 20 }).default('free'),
   emailVerified:        boolean('email_verified').default(false),
+  emailVerifyToken:     varchar('email_verify_token', { length: 128 }),
+  emailVerifyExpiry:    timestamp('email_verify_expiry'),
   createdAt:            timestamp('created_at').defaultNow().notNull(),
   updatedAt:            timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
@@ -44,23 +47,40 @@ export const apiKeys = pgTable('api_keys', {
 
 // ── Protocols ─────────────────────────────────────────────────────
 export const protocols = pgTable('protocols', {
-  id:              uuid('id').primaryKey().defaultRandom(),
-  userId:          uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  name:            varchar('name', { length: 100 }).notNull(),
-  chain:           varchar('chain', { length: 50 }).notNull(),
-  contractAddress: varchar('contract_address', { length: 42 }),
-  category:        varchar('category', { length: 50 }).notNull(),
-  websiteUrl:      varchar('website_url', { length: 255 }),
-  monitoringActive: boolean('monitoring_active').default(true),
-  webhookUrl:      varchar('webhook_url', { length: 500 }),
-  alertEmail:      varchar('alert_email', { length: 255 }),
-  riskScore:          integer('risk_score').default(0),
-  onChainRegistered:  boolean('on_chain_registered').default(false),
-  lastAnalyzedAt:     timestamp('last_analyzed_at'),
-  createdAt:          timestamp('created_at').defaultNow().notNull(),
-  updatedAt:          timestamp('updated_at').defaultNow().notNull(),
+  id:                    uuid('id').primaryKey().defaultRandom(),
+  userId:                uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name:                  varchar('name', { length: 100 }).notNull(),
+  chain:                 varchar('chain', { length: 50 }).notNull(),
+  contractAddress:       varchar('contract_address', { length: 42 }),
+  category:              varchar('category', { length: 50 }).notNull(),
+  websiteUrl:            varchar('website_url', { length: 255 }),
+  monitoringActive:      boolean('monitoring_active').default(true),
+  webhookUrl:            varchar('webhook_url', { length: 500 }),
+  alertEmail:            varchar('alert_email', { length: 255 }),
+  riskScore:             integer('risk_score').default(0),
+  onChainRegistered:     boolean('on_chain_registered').default(false),
+  autoAnalyzeIntervalHours: integer('auto_analyze_interval_hours').default(0), // 0 = disabled
+  lastAnalyzedAt:        timestamp('last_analyzed_at'),
+  createdAt:             timestamp('created_at').defaultNow().notNull(),
+  updatedAt:             timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
   userIdx: index('protocols_user_idx').on(t.userId),
+}));
+
+// ── Notifications ─────────────────────────────────────────────────
+export const notifications = pgTable('notifications', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  userId:     uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type:       varchar('type', { length: 50 }).notNull(), // judgment | alert | system | verification
+  title:      varchar('title', { length: 200 }).notNull(),
+  body:       text('body').notNull(),
+  link:       varchar('link', { length: 500 }),
+  read:       boolean('read').default(false).notNull(),
+  metadata:   jsonb('metadata'),
+  createdAt:  timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx:  index('notif_user_idx').on(t.userId),
+  readIdx:  index('notif_read_idx').on(t.read),
 }));
 
 // ── Threat Events ─────────────────────────────────────────────────
@@ -156,18 +176,19 @@ export const usersRelations = relations(users, ({ many }) => ({
   apiKeys:         many(apiKeys),
   protocols:       many(protocols),
   genTransactions: many(genTransactions),
+  notifications:   many(notifications),
 }));
 
 export const protocolsRelations = relations(protocols, ({ one, many }) => ({
-  user:            one(users, { fields: [protocols.userId], references: [users.id] }),
-  threatEvents:    many(threatEvents),
-  aiJudgments:     many(aiJudgments),
-  alertsSent:      many(alertsSent),
+  user:             one(users, { fields: [protocols.userId], references: [users.id] }),
+  threatEvents:     many(threatEvents),
+  aiJudgments:      many(aiJudgments),
+  alertsSent:       many(alertsSent),
   signalIngestions: many(signalIngestions),
 }));
 
 export const aiJudgmentsRelations = relations(aiJudgments, ({ one, many }) => ({
   threatEvent: one(threatEvents, { fields: [aiJudgments.threatEventId], references: [threatEvents.id] }),
-  protocol:    one(protocols, { fields: [aiJudgments.protocolId], references: [protocols.id] }),
+  protocol:    one(protocols,    { fields: [aiJudgments.protocolId],   references: [protocols.id] }),
   alerts:      many(alertsSent),
 }));

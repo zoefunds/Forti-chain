@@ -10,6 +10,35 @@ import { generateWallet } from '../services/wallet/walletService.js';
 import { encryptForServer, decrypt } from '../services/wallet/encryption.js';
 import { env } from '../config/env.js';
 import { authenticate } from '../middleware/authenticate.js';
+import { NotificationService } from '../services/notifications/notificationService.js';
+
+async function sendVerificationEmail(to: string, token: string) {
+  const brevoApi = new Brevo.TransactionalEmailsApi();
+  brevoApi.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, env.BREVO_API_KEY);
+  const url = `https://forti-chain.vercel.app/auth/verify-email?token=${token}`;
+  const email = new Brevo.SendSmtpEmail();
+  email.sender = { email: env.EMAIL_FROM, name: 'FortiChain' };
+  email.to = [{ email: to }];
+  email.subject = '[FortiChain] Verify your email address';
+  email.htmlContent = `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+      <div style="background:#0d1014;padding:24px;border-radius:8px 8px 0 0;border-bottom:1px solid #1c2229">
+        <h1 style="color:#217eaa;margin:0;font-size:18px">&#x1F6E1; FortiChain</h1>
+      </div>
+      <div style="background:#111518;padding:28px;border-radius:0 0 8px 8px">
+        <h2 style="color:#eeeeee;margin-top:0">Verify your email</h2>
+        <p style="color:#8ca4ac">Click below to verify your email address and unlock all FortiChain features.</p>
+        <a href="${url}" style="display:inline-block;background:#217eaa;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin:16px 0">
+          Verify Email
+        </a>
+        <p style="color:#8ca4ac;font-size:13px">This link expires in 24 hours.</p>
+        <hr style="border-color:#1c2229"/>
+        <p style="color:#8ca4ac;font-size:11px;font-family:monospace">Or copy: ${url}</p>
+      </div>
+    </div>
+  `;
+  await brevoApi.sendTransacEmail(email);
+}
 
 // In-memory token store (sufficient for stateless reset; TTL = 15 min)
 const resetTokens = new Map<string, { userId: string; expiresAt: number }>();
@@ -83,6 +112,16 @@ export async function authRoutes(app: FastifyInstance) {
       await db.update(users).set({ serverEncryptedKey }).where(eq(users.id, user.id));
     } catch (err) {
       console.error('[auth] Failed to store server encrypted key on register:', err);
+    }
+
+    // Send email verification
+    try {
+      const verifyToken = crypto.randomBytes(32).toString('hex');
+      const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await db.update(users).set({ emailVerifyToken: verifyToken, emailVerifyExpiry: verifyExpiry }).where(eq(users.id, user.id));
+      await sendVerificationEmail(email, verifyToken);
+    } catch (err) {
+      console.error('[auth] Failed to send verification email:', err);
     }
 
     const token = app.jwt.sign({ id: user.id }, { expiresIn: '15m' });
@@ -194,7 +233,48 @@ export async function authRoutes(app: FastifyInstance) {
 
   // GET /api/v1/auth/me
   app.get('/me', { preHandler: authenticate }, async (req) => {
-    const { passwordHash, encryptedPrivateKey, encryptedMnemonic, serverEncryptedKey, walletSalt, ...safe } = req.user as any;
+    const { passwordHash, encryptedPrivateKey, encryptedMnemonic, serverEncryptedKey, walletSalt, emailVerifyToken, emailVerifyExpiry, ...safe } = req.user as any;
     return { user: safe };
+  });
+
+  // GET /api/v1/auth/verify-email?token=...
+  app.get('/verify-email', async (req, reply) => {
+    const { token } = req.query as { token?: string };
+    if (!token) return reply.status(400).send({ error: 'Token required' });
+
+    const [user] = await db.select({
+      id: users.id, emailVerifyToken: users.emailVerifyToken, emailVerifyExpiry: users.emailVerifyExpiry, emailVerified: users.emailVerified,
+    }).from(users).where(eq(users.emailVerifyToken, token)).limit(1);
+
+    if (!user) return reply.status(400).send({ error: 'Invalid or expired verification link' });
+    if (user.emailVerified) return { ok: true, message: 'Already verified' };
+    if (user.emailVerifyExpiry && user.emailVerifyExpiry < new Date()) {
+      return reply.status(400).send({ error: 'Verification link has expired — please request a new one' });
+    }
+
+    await db.update(users)
+      .set({ emailVerified: true, emailVerifyToken: null, emailVerifyExpiry: null, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    const notifService = new NotificationService();
+    await notifService.emailVerified(user.id).catch(() => {});
+
+    return { ok: true };
+  });
+
+  // POST /api/v1/auth/resend-verification
+  app.post('/resend-verification', { preHandler: authenticate }, async (req, reply) => {
+    const u = req.user as any;
+    if (u.emailVerified) return reply.status(400).send({ error: 'Email already verified' });
+    try {
+      const verifyToken = crypto.randomBytes(32).toString('hex');
+      const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await db.update(users).set({ emailVerifyToken: verifyToken, emailVerifyExpiry: verifyExpiry }).where(eq(users.id, u.id));
+      await sendVerificationEmail(u.email, verifyToken);
+    } catch (err) {
+      console.error('[auth] Failed to resend verification email:', err);
+      return reply.status(500).send({ error: 'Failed to send email' });
+    }
+    return { ok: true };
   });
 }
