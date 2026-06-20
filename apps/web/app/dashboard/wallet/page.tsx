@@ -1,48 +1,33 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Wallet, Copy, Check, Eye, AlertTriangle, Loader2,
-  Zap, Crown, ShieldCheck, Star, RefreshCw,
-} from 'lucide-react';
+import { Wallet, Copy, Check, Eye, AlertTriangle, Loader2, ShieldCheck, Star, Crown, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { usePolling } from '@/lib/usePolling';
 
 const PLANS = [
   {
-    id: 'free',
-    label: 'Free',
-    icon: ShieldCheck,
-    price: 0,
-    color: 'border-fort-border',
-    highlight: false,
+    id: 'free', label: 'Free', icon: ShieldCheck, price: 0,
     perks: ['1 protocol', '10 AI judgments/month', 'Email alerts'],
+    accent: '#8ca4ac',
   },
   {
-    id: 'pro',
-    label: 'Pro',
-    icon: Star,
-    price: 49,
-    color: 'border-fort-cyan/50',
-    highlight: true,
+    id: 'pro', label: 'Pro', icon: Star, price: 49,
     perks: ['10 protocols', '500 AI judgments/month', 'Email + webhook alerts', 'Priority analysis'],
+    accent: '#217eaa', featured: true,
   },
   {
-    id: 'enterprise',
-    label: 'Enterprise',
-    icon: Crown,
-    price: 299,
-    color: 'border-fort-warning/40',
-    highlight: false,
+    id: 'enterprise', label: 'Enterprise', icon: Crown, price: 299,
     perks: ['Unlimited protocols', 'Unlimited judgments', 'All alert channels', 'SLA + dedicated support'],
+    accent: '#f59e0b',
   },
 ];
 
 export default function WalletPage() {
   const { user, refreshBalance } = useAuthStore();
   const [wallet, setWallet] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string>('');
   const [password, setPassword] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -52,101 +37,86 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    try {
-      const res = await api.get('/api/v1/wallet');
-      setWallet(res.data);
-    } catch {}
-    finally { setLoading(false); }
+    try { const res = await api.get('/api/v1/wallet'); setWallet(res.data); }
+    catch {} finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
   usePolling(() => { load(); refreshBalance(); }, 120_000);
 
-  const copy = (text: string) => {
+  const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(id); setTimeout(() => setCopied(''), 2000);
   };
 
   const exportKey = async () => {
-    setExporting(true);
-    setExportError('');
+    setExporting(true); setExportError('');
     try {
       const res = await api.post('/api/v1/wallet/export-key', { password });
-      setPrivateKey(res.data.privateKey);
-      setPassword('');
+      setPrivateKey(res.data.privateKey); setPassword('');
     } catch (err: any) {
       setExportError(err.response?.data?.error ?? 'Failed to export');
-    } finally {
-      setExporting(false);
-    }
+    } finally { setExporting(false); }
   };
 
-  const subscribe = async (planId: string, months = 1) => {
-    setSubscribing(planId);
-    setSubscribeMsg('');
+  const subscribe = async (planId: string) => {
+    setSubscribing(planId); setSubscribeMsg('');
     try {
-      await api.post('/api/v1/wallet/subscribe', { planId, months });
-      setSubscribeMsg(`Subscribed to ${planId}! Your plan has been upgraded.`);
-      await load();
-      await refreshBalance();
+      await api.post('/api/v1/wallet/subscribe', { planId, months: 1 });
+      setSubscribeMsg(`Upgraded to ${planId}!`);
+      await load(); await refreshBalance();
     } catch (err: any) {
-      setSubscribeMsg(err.response?.data?.error ?? 'Subscription failed. Ensure you have enough GEN.');
-    } finally {
-      setSubscribing('');
-    }
+      setSubscribeMsg(err.response?.data?.error ?? 'Subscription failed.');
+    } finally { setSubscribing(''); }
   };
 
   const genBalance = parseFloat(user?.genBalanceCache ?? wallet?.genBalance ?? '0');
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center justify-between">
+    <div className="p-6 space-y-6 animate-fade-in max-w-3xl">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Wallet & Subscription</h1>
-          <p className="text-fort-muted text-sm mt-1">Your auto-generated GEN wallet on GenLayer StudioNet</p>
+          <h1 className="text-xl font-semibold text-[#eeeeee]">Wallet & Subscription</h1>
+          <p className="text-xs text-[#8ca4ac] mt-0.5">Your auto-generated GEN wallet on GenLayer StudioNet</p>
         </div>
-        <button onClick={() => { load(); refreshBalance(); }}
-          className="flex items-center gap-1.5 text-xs text-fort-muted border border-fort-border px-3 py-1.5 rounded-lg hover:text-white transition-all">
+        <button onClick={() => { load(); refreshBalance(); }} className="btn-ghost text-xs gap-1.5 border border-[#1c2229]">
           <RefreshCw className="w-3 h-3" /> Refresh
         </button>
       </div>
 
       {/* Wallet card */}
-      <div className="card-fort p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-fort-cyan/10 border border-fort-cyan/30 flex items-center justify-center">
-            <Wallet className="w-6 h-6 text-fort-cyan" />
+      <div className="fc-card p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded border border-[#217eaa]/40 bg-[#217eaa]/10 flex items-center justify-center">
+            <Wallet className="w-5 h-5 text-[#217eaa]" />
           </div>
           <div>
-            <p className="text-white font-semibold">FortiChain Wallet</p>
-            <p className="text-fort-muted text-xs">GenLayer StudioNet · GEN Token</p>
+            <p className="text-[#eeeeee] font-semibold text-sm">FortiChain Wallet</p>
+            <p className="text-2xs text-[#8ca4ac] font-mono">GenLayer StudioNet · GEN Token</p>
           </div>
           <div className="ml-auto text-right">
-            <p className="text-fort-muted text-xs">Current Plan</p>
-            <p className="text-fort-cyan font-semibold capitalize">{user?.subscriptionTier ?? 'free'}</p>
+            <p className="fc-label">Current Plan</p>
+            <p className="text-[#217eaa] text-sm font-semibold capitalize mt-0.5">{user?.subscriptionTier ?? 'free'}</p>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="text-fort-muted text-xs mb-1.5 block">Wallet Address</label>
-            <div className="flex items-center gap-2 bg-fort-surface border border-fort-border rounded-lg px-4 py-3">
-              <code className="flex-1 font-mono text-sm text-white truncate">{user?.walletAddress}</code>
-              <button onClick={() => copy(user?.walletAddress ?? '')} className="text-fort-muted hover:text-white">
-                {copied ? <Check className="w-4 h-4 text-fort-green" /> : <Copy className="w-4 h-4" />}
+            <label className="fc-label block mb-1.5">Wallet Address</label>
+            <div className="flex items-center gap-2 bg-[#0d1014] border border-[#1c2229] rounded px-3 py-2.5">
+              <code className="flex-1 font-mono text-xs text-[#eeeeee] truncate">{user?.walletAddress}</code>
+              <button onClick={() => copy(user?.walletAddress ?? '', 'addr')} className="text-[#8ca4ac] hover:text-[#eeeeee]">
+                {copied === 'addr' ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
-
           <div>
-            <label className="text-fort-muted text-xs mb-1.5 block">GEN Balance</label>
-            <div className="bg-fort-surface border border-fort-border rounded-lg px-4 py-3 flex items-center justify-between">
-              <div>
-                <span className="font-mono text-2xl font-bold text-fort-cyan">{genBalance.toFixed(6)}</span>
-                <span className="text-fort-muted ml-2">GEN</span>
-              </div>
-              {loading && <Loader2 className="w-4 h-4 text-fort-muted animate-spin" />}
+            <label className="fc-label block mb-1.5">GEN Balance</label>
+            <div className="flex items-center justify-between bg-[#0d1014] border border-[#1c2229] rounded px-3 py-2.5">
+              <span className="font-mono text-xl font-bold text-[#217eaa] tabular-nums">
+                {genBalance.toFixed(6)} <span className="text-[#8ca4ac] text-xs font-normal">GEN</span>
+              </span>
+              {loading && <Loader2 className="w-3.5 h-3.5 text-[#8ca4ac] animate-spin" />}
             </div>
           </div>
         </div>
@@ -154,122 +124,117 @@ export default function WalletPage() {
 
       {/* Subscription plans */}
       <div>
-        <h2 className="text-white font-semibold mb-4">Upgrade Plan</h2>
+        <h2 className="text-[#eeeeee] font-semibold text-sm mb-4">Upgrade Plan</h2>
         {subscribeMsg && (
-          <div className={`mb-4 px-4 py-3 rounded-xl border text-sm ${
+          <div className={`mb-4 px-4 py-3 rounded border text-xs font-mono ${
             subscribeMsg.includes('fail') || subscribeMsg.includes('Error')
-              ? 'bg-fort-danger/10 border-fort-danger/30 text-fort-danger'
-              : 'bg-fort-green/10 border-fort-green/30 text-fort-green'
-          }`}>
-            {subscribeMsg}
-          </div>
+              ? 'bg-[#ef4444]/10 border-[#ef4444]/30 text-[#ef4444]'
+              : 'bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e]'
+          }`}>{subscribeMsg}</div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PLANS.map(plan => {
             const Icon = plan.icon;
             const isCurrent = user?.subscriptionTier === plan.id;
             return (
-              <div key={plan.id}
-                className={`card-fort p-5 border-2 transition-all ${
-                  plan.highlight ? plan.color : 'border-fort-border'
-                } ${isCurrent ? 'ring-2 ring-fort-cyan ring-offset-2 ring-offset-fort-bg' : ''}`}>
+              <motion.div key={plan.id}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className={`fc-card p-5 border-2 transition-all ${
+                  plan.featured ? 'border-[#217eaa]/40' : isCurrent ? 'border-[#22c55e]/30' : 'border-transparent'
+                }`}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Icon className={`w-5 h-5 ${plan.highlight ? 'text-fort-cyan' : 'text-fort-muted'}`} />
-                  <h3 className="text-white font-semibold">{plan.label}</h3>
-                  {isCurrent && <span className="text-xs text-fort-cyan ml-auto">Current</span>}
+                  <Icon className="w-4 h-4" style={{ color: plan.accent }} />
+                  <h3 className="text-[#eeeeee] font-semibold text-sm">{plan.label}</h3>
+                  {isCurrent && <span className="ml-auto fc-badge-secure text-2xs">Active</span>}
                 </div>
-                <p className="text-2xl font-bold font-mono text-white mb-4">
+                <p className="font-mono text-xl font-bold text-[#eeeeee] mb-4 tabular-nums">
                   {plan.price === 0 ? 'Free' : `$${plan.price}`}
-                  {plan.price > 0 && <span className="text-fort-muted text-xs font-normal">/mo</span>}
+                  {plan.price > 0 && <span className="text-[#8ca4ac] text-xs font-normal">/mo</span>}
                 </p>
                 <ul className="space-y-1.5 mb-5">
                   {plan.perks.map(p => (
-                    <li key={p} className="flex items-center gap-2 text-fort-text text-xs">
-                      <Check className="w-3 h-3 text-fort-green flex-shrink-0" /> {p}
+                    <li key={p} className="flex items-center gap-2 text-2xs text-[#8ca4ac]">
+                      <Check className="w-3 h-3 text-[#22c55e] flex-shrink-0" /> {p}
                     </li>
                   ))}
                 </ul>
                 <button
                   onClick={() => subscribe(plan.id)}
                   disabled={isCurrent || !!subscribing || plan.id === 'free'}
-                  className={`w-full py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 ${
-                    plan.highlight
-                      ? 'bg-fort-cyan text-fort-bg hover:bg-fort-cyan/90'
-                      : 'border border-fort-border text-white hover:border-white/30'
+                  className={`w-full py-2 rounded text-xs font-semibold transition-all disabled:opacity-50 ${
+                    plan.featured
+                      ? 'bg-[#217eaa] text-white hover:bg-[#1a6690]'
+                      : 'border border-[#1c2229] text-[#8ca4ac] hover:border-[#217eaa]/40 hover:text-[#eeeeee]'
                   }`}>
                   {subscribing === plan.id
-                    ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" />Processing...</span>
-                    : isCurrent ? 'Active Plan'
-                    : plan.id === 'free' ? 'Default Plan'
+                    ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" />Processing…</span>
+                    : isCurrent ? 'Current Plan'
+                    : plan.id === 'free' ? 'Default'
                     : `Upgrade to ${plan.label}`}
                 </button>
-              </div>
+              </motion.div>
             );
           })}
         </div>
-        <p className="text-fort-muted text-xs mt-3">
-          Subscriptions are processed on-chain via the FortiChain Sentinel contract. GEN tokens are deducted from your wallet.
+        <p className="text-2xs text-[#8ca4ac] font-mono mt-3">
+          Subscriptions processed on-chain via the FortiChain Sentinel contract. GEN tokens deducted from your wallet.
         </p>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Recent transactions */}
       {wallet?.recentTransactions?.length > 0 && (
-        <div className="card-fort p-6">
-          <h2 className="text-white font-semibold mb-4">Recent GEN Transactions</h2>
-          <div className="space-y-2">
-            {wallet.recentTransactions.map((tx: any) => (
-              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-fort-border last:border-0">
-                <div>
-                  <p className="text-white text-sm">{tx.purpose}</p>
-                  {tx.txHash && (
-                    <p className="text-fort-muted text-xs font-mono">{tx.txHash?.slice(0, 20)}...</p>
-                  )}
-                </div>
-                <span className={`font-mono text-sm ${tx.confirmed ? 'text-fort-green' : 'text-fort-muted'}`}>
-                  -{parseFloat(tx.amount).toFixed(6)} GEN
-                </span>
-              </div>
-            ))}
+        <div className="fc-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#1c2229]">
+            <span className="text-sm font-medium text-[#eeeeee]">Recent GEN Transactions</span>
           </div>
+          <table className="fc-table">
+            <tbody>
+              {wallet.recentTransactions.map((tx: any) => (
+                <tr key={tx.id} className="fc-tr">
+                  <td className="fc-td">
+                    <p className="text-xs text-[#eeeeee]">{tx.purpose}</p>
+                    {tx.txHash && <p className="text-2xs text-[#8ca4ac] font-mono">{tx.txHash?.slice(0, 20)}…</p>}
+                  </td>
+                  <td className="fc-td text-right">
+                    <span className={`font-mono text-sm ${tx.confirmed ? 'text-[#22c55e]' : 'text-[#8ca4ac]'}`}>
+                      -{parseFloat(tx.amount).toFixed(6)} GEN
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Export private key */}
-      <div className="card-fort p-6 border border-fort-warning/20">
+      <div className="fc-card p-6 border-[#f59e0b]/20">
         <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-4 h-4 text-fort-warning" />
-          <h2 className="text-white font-semibold">Export Private Key</h2>
+          <AlertTriangle className="w-4 h-4 text-[#f59e0b]" />
+          <h2 className="text-[#eeeeee] font-semibold text-sm">Export Private Key</h2>
         </div>
-        <p className="text-fort-muted text-sm mb-4">Never share your private key. Keep it in a secure location.</p>
-
-        {exportError && <p className="text-fort-danger text-sm mb-3">{exportError}</p>}
-
+        <p className="text-2xs text-[#8ca4ac] font-mono mb-4">Never share your private key. Keep it in a secure location.</p>
+        {exportError && <p className="text-[#ef4444] text-xs mb-3">{exportError}</p>}
         {privateKey ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="bg-fort-danger/10 border border-fort-danger/30 rounded-xl p-4">
-            <p className="text-fort-danger text-xs font-semibold mb-2">⚠️ Private Key — Keep this secret</p>
+            className="bg-[#ef4444]/5 border border-[#ef4444]/30 rounded p-4">
+            <p className="text-[#ef4444] text-2xs font-mono mb-2 uppercase tracking-widest">Private Key — Keep this secret</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 font-mono text-xs text-white bg-fort-bg rounded-lg px-3 py-2 break-all">{privateKey}</code>
-              <button onClick={() => copy(privateKey)} className="text-fort-muted hover:text-white flex-shrink-0">
-                {copied ? <Check className="w-4 h-4 text-fort-green" /> : <Copy className="w-4 h-4" />}
+              <code className="flex-1 font-mono text-xs text-[#eeeeee] bg-[#090b0d] rounded px-3 py-2 break-all">{privateKey}</code>
+              <button onClick={() => copy(privateKey, 'pk')} className="text-[#8ca4ac] hover:text-[#eeeeee] flex-shrink-0">
+                {copied === 'pk' ? <Check className="w-4 h-4 text-[#22c55e]" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
-            <button onClick={() => setPrivateKey('')} className="mt-3 text-fort-muted text-xs hover:text-white">
-              Hide key
-            </button>
+            <button onClick={() => setPrivateKey('')} className="mt-3 text-2xs text-[#8ca4ac] hover:text-[#eeeeee] font-mono">Hide key</button>
           </motion.div>
         ) : (
           <div className="flex gap-3">
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="Enter your password to unlock"
               onKeyDown={e => e.key === 'Enter' && password && exportKey()}
-              className="flex-1 bg-fort-surface border border-fort-border rounded-lg px-4 py-2.5 text-white placeholder-fort-muted focus:outline-none focus:border-fort-warning/50 text-sm"
-            />
+              className="fc-input flex-1" />
             <button onClick={exportKey} disabled={exporting || !password}
-              className="flex items-center gap-2 border border-fort-warning/30 text-fort-warning px-4 py-2.5 rounded-xl hover:bg-fort-warning/10 transition-all disabled:opacity-50 text-sm">
+              className="btn-outline gap-2 text-[#f59e0b] border-[#f59e0b]/30 hover:border-[#f59e0b]/60 disabled:opacity-50">
               {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
               Export
             </button>

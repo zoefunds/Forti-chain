@@ -17,39 +17,39 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
-        primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-        },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
-        },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
-        },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
-        },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        // FortiChain custom
+        // Legacy fort-* tokens (used by marketing/ui components)
         fort: {
-          bg:       '#0A0E1A',
-          surface:  '#111827',
-          card:     '#1A2236',
-          border:   '#1E2D40',
-          cyan:     '#00D4FF',
-          green:    '#00FF88',
-          warning:  '#FF9500',
-          danger:   '#FF4444',
-          critical: '#FF0000',
-          muted:    '#6B7280',
-          text:     '#E5E7EB',
+          bg:      '#090b0d',
+          surface: '#0d1014',
+          card:    '#111518',
+          border:  '#1c2229',
+          cyan:    '#217eaa',
+          muted:   '#8ca4ac',
+          text:    '#eeeeee',
+          green:   '#22c55e',
+          danger:  '#ef4444',
+          warning: '#f59e0b',
+          orange:  '#f97316',
+        },
+        // FortiChain design system — matches reference screenshots
+        fc: {
+          bg:       '#090b0d',   // darkest bg
+          surface:  '#0d1014',   // panel/sidebar bg
+          card:     '#111518',   // card bg
+          card2:    '#141a1f',   // elevated card
+          border:   '#1c2229',   // border
+          border2:  '#232b34',   // brighter border
+          // User palette
+          primary:  '#217eaa',   // main CTA blue
+          blue:     '#7d9cb7',   // secondary blue
+          muted:    '#8ca4ac',   // muted text
+          text:     '#eeeeee',   // primary text
+          light:    '#f2f2f3',   // light text
+          // Status colors
+          green:    '#22c55e',   // live/success
+          amber:    '#f59e0b',   // warning
+          red:      '#ef4444',   // danger/critical
+          orange:   '#f97316',   // high risk
         },
       },
       borderRadius: {
@@ -57,36 +57,34 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
+      },
+      letterSpacing: {
+        widest2: '0.2em',
+      },
       keyframes: {
-        'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },
-        'accordion-up': { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: '0' } },
-        'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 5px rgba(0, 212, 255, 0.3)' },
-          '50%': { boxShadow: '0 0 20px rgba(0, 212, 255, 0.8)' },
+        'pulse-dot': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.3' },
         },
-        'scan-line': {
+        'scan': {
           '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(100vh)' },
+          '100%': { transform: 'translateY(200%)' },
         },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-8px)' },
+        'fade-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
       },
       animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
-        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-        float: 'float 3s ease-in-out infinite',
-      },
-      backgroundImage: {
-        'grid-pattern': 'none',
-        'radial-glow': 'radial-gradient(ellipse at top, rgba(0,212,255,0.15) 0%, transparent 60%)',
-        'hero-gradient': 'linear-gradient(135deg, #0A0E1A 0%, #0D1526 50%, #0A0E1A 100%)',
-      },
-      fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        'pulse-dot': 'pulse-dot 1.5s ease-in-out infinite',
+        'scan': 'scan 3s linear infinite',
+        'fade-in': 'fade-in 0.3s ease-out',
       },
     },
   },

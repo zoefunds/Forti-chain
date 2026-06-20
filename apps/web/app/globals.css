@@ -6,41 +6,174 @@
 
 @layer base {
   :root {
-    --background: 220 30% 6%;
-    --foreground: 210 20% 90%;
-    --primary: 193 100% 50%;
-    --primary-foreground: 220 30% 6%;
-    --secondary: 220 25% 15%;
-    --secondary-foreground: 210 20% 90%;
-    --muted: 220 25% 12%;
-    --muted-foreground: 215 15% 50%;
-    --accent: 220 25% 15%;
-    --accent-foreground: 210 20% 90%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 20% 90%;
-    --border: 220 25% 15%;
-    --input: 220 25% 15%;
-    --ring: 193 100% 50%;
-    --radius: 0.5rem;
+    --background: 210 20% 5%;
+    --foreground: 210 10% 93%;
+    --primary: 204 68% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 10%;
+    --secondary-foreground: 210 10% 93%;
+    --muted: 210 20% 8%;
+    --muted-foreground: 202 16% 60%;
+    --accent: 210 20% 10%;
+    --accent-foreground: 210 10% 93%;
+    --destructive: 0 72% 57%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 20% 13%;
+    --input: 210 20% 10%;
+    --ring: 204 68% 39%;
+    --radius: 0.375rem;
   }
 }
 
 @layer base {
-  * { @apply border-border; }
+  * { @apply border-border box-border; }
+  html { @apply scroll-smooth; }
   body {
-    @apply bg-fort-bg text-fort-text font-sans;
+    background-color: #090b0d;
+    color: #eeeeee;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #090b0d; }
+  ::-webkit-scrollbar-thumb { background: #1c2229; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #232b34; }
+}
+
+@layer components {
+  /* ─── Cards ─────────────────────────────────────────────── */
+  .fc-card {
+    @apply bg-[#111518] border border-[#1c2229] rounded-lg;
+  }
+  .fc-card-hover {
+    @apply fc-card hover:border-[#217eaa]/30 transition-colors duration-200;
+  }
+
+  /* ─── Status badge ───────────────────────────────────────── */
+  .fc-badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-2xs font-mono uppercase tracking-widest;
+  }
+  .fc-badge-live {
+    @apply fc-badge bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/30;
+  }
+  .fc-badge-critical {
+    @apply fc-badge bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30;
+  }
+  .fc-badge-high {
+    @apply fc-badge bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/30;
+  }
+  .fc-badge-medium {
+    @apply fc-badge bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/30;
+  }
+  .fc-badge-low {
+    @apply fc-badge bg-[#217eaa]/10 text-[#7d9cb7] border border-[#217eaa]/30;
+  }
+  .fc-badge-info {
+    @apply fc-badge bg-[#8ca4ac]/10 text-[#8ca4ac] border border-[#8ca4ac]/30;
+  }
+  .fc-badge-secure {
+    @apply fc-badge bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/30;
+  }
+
+  /* ─── Label style ────────────────────────────────────────── */
+  .fc-label {
+    @apply text-2xs font-mono uppercase tracking-widest text-[#8ca4ac];
+  }
+
+  /* ─── Stat number ────────────────────────────────────────── */
+  .fc-stat {
+    @apply font-mono text-[#eeeeee] tabular-nums;
+  }
+
+  /* ─── Primary button ─────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded text-sm font-semibold
+           bg-[#217eaa] text-white hover:bg-[#1a6690] active:bg-[#155a80]
+           transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded text-sm font-medium
+           border border-[#1c2229] text-[#8ca4ac] hover:border-[#217eaa]/50 hover:text-[#eeeeee]
+           transition-colors duration-150 disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded text-sm text-[#8ca4ac]
+           hover:text-[#eeeeee] hover:bg-[#1c2229] transition-colors duration-150;
+  }
+
+  /* ─── Input ──────────────────────────────────────────────── */
+  .fc-input {
+    @apply w-full bg-[#0d1014] border border-[#1c2229] rounded px-3 py-2.5
+           text-[#eeeeee] text-sm placeholder-[#8ca4ac]/50
+           focus:outline-none focus:border-[#217eaa]/60 focus:ring-1 focus:ring-[#217eaa]/20
+           transition-colors duration-150 font-mono;
+  }
+
+  /* ─── Nav item ───────────────────────────────────────────── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded text-sm text-[#8ca4ac]
+           hover:text-[#eeeeee] hover:bg-[#1c2229] transition-colors duration-150 cursor-pointer;
+  }
+  .nav-item-active {
+    @apply nav-item text-[#217eaa] bg-[#217eaa]/10 border-l-2 border-[#217eaa];
+  }
+
+  /* ─── Table ──────────────────────────────────────────────── */
+  .fc-table {
+    @apply w-full text-sm;
+  }
+  .fc-th {
+    @apply fc-label px-4 py-3 text-left border-b border-[#1c2229];
+  }
+  .fc-td {
+    @apply px-4 py-4 text-[#eeeeee] border-b border-[#1c2229]/50 text-sm;
+  }
+  .fc-tr {
+    @apply hover:bg-[#1c2229]/30 transition-colors duration-100;
+  }
+
+  /* ─── Dot indicator ──────────────────────────────────────── */
+  .dot-live { @apply w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse-dot; }
+  .dot-warn { @apply w-1.5 h-1.5 rounded-full bg-[#f59e0b]; }
+  .dot-dead { @apply w-1.5 h-1.5 rounded-full bg-[#8ca4ac]; }
+  .dot-danger { @apply w-1.5 h-1.5 rounded-full bg-[#ef4444] animate-pulse-dot; }
+
+  /* ─── Risk bar ───────────────────────────────────────────── */
+  .risk-bar-track {
+    @apply h-1 bg-[#1c2229] rounded-full overflow-hidden;
   }
 }
 
+@layer components {
+  /* ─── Legacy aliases (fort-* → new tokens) ──────────────── */
+  .card-fort { @apply fc-card; }
+  .text-fort-cyan { @apply text-[#217eaa]; }
+  .text-fort-muted { @apply text-[#8ca4ac]; }
+  .text-fort-text { @apply text-[#eeeeee]; }
+  .text-fort-green { @apply text-[#22c55e]; }
+  .text-fort-danger { @apply text-[#ef4444]; }
+  .text-fort-warning { @apply text-[#f59e0b]; }
+  .bg-fort-bg { @apply bg-[#090b0d]; }
+  .bg-fort-surface { @apply bg-[#0d1014]; }
+  .bg-fort-card { @apply bg-[#111518]; }
+  .bg-fort-border { @apply bg-[#1c2229]; }
+  .bg-fort-cyan { @apply bg-[#217eaa]; }
+  .bg-fort-green { @apply bg-[#22c55e]; }
+  .bg-fort-danger { @apply bg-[#ef4444]; }
+  .bg-fort-warning { @apply bg-[#f59e0b]; }
+  .border-fort-border { @apply border-[#1c2229]; }
+  .border-fort-cyan { @apply border-[#217eaa]; }
+  .border-fort-green { @apply border-[#22c55e]; }
+  .border-fort-danger { @apply border-[#ef4444]; }
+  .border-fort-warning { @apply border-[#f59e0b]; }
+  .text-fort-bg { @apply text-[#090b0d]; }
+}
+
 @layer utilities {
-  .text-glow-cyan { text-shadow: 0 0 20px rgba(0, 212, 255, 0.6); }
-  .text-glow-green { text-shadow: 0 0 20px rgba(0, 255, 136, 0.6); }
-  .border-glow-cyan { box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.3), 0 0 20px rgba(0, 212, 255, 0.1); }
-  .card-fort {
-    @apply bg-fort-card border border-fort-border rounded-xl;
-  }
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: #1E2D40 #0A0E1A;
-  }
+  .text-2xs { font-size: 0.625rem; line-height: 0.875rem; }
+  .tracking-widest2 { letter-spacing: 0.2em; }
+  .font-tabular { font-variant-numeric: tabular-nums; }
+  .glow-primary { box-shadow: 0 0 20px rgba(33,126,170,0.15); }
+  .glow-danger { box-shadow: 0 0 20px rgba(239,68,68,0.15); }
 }

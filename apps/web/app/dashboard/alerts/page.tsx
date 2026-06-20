@@ -1,16 +1,15 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { Bell, Mail, Webhook, CheckCircle, XCircle, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { usePolling } from '@/lib/usePolling';
 import { formatDistanceToNow } from 'date-fns';
 
-const LEVEL_LABELS: Record<number, { label: string; color: string }> = {
-  1: { label: 'Warning',   color: 'text-yellow-400' },
-  2: { label: 'Restricted',color: 'text-fort-warning' },
-  3: { label: 'Emergency', color: 'text-fort-danger' },
-  4: { label: 'Critical',  color: 'text-red-500' },
+const LEVEL_INFO: Record<number, { label: string; badge: string }> = {
+  1: { label: 'Warning',    badge: 'fc-badge-low' },
+  2: { label: 'Restricted', badge: 'fc-badge-medium' },
+  3: { label: 'Emergency',  badge: 'fc-badge-high' },
+  4: { label: 'Critical',   badge: 'fc-badge-critical' },
 };
 
 export default function AlertsPage() {
@@ -21,13 +20,10 @@ export default function AlertsPage() {
   const load = useCallback(async () => {
     try {
       const res = await api.get('/api/v1/alerts');
-      setAlerts(res.data);
-      setError('');
+      setAlerts(res.data); setError('');
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Failed to load alerts');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -37,90 +33,99 @@ export default function AlertsPage() {
   const failed = alerts.filter(a => !a.delivered).length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Alerts</h1>
-          <p className="text-fort-muted text-sm mt-1">All dispatched security alerts across your protocols</p>
+          <h1 className="text-xl font-semibold text-[#eeeeee]">Alerts</h1>
+          <p className="text-xs text-[#8ca4ac] mt-0.5">All dispatched security alerts across your protocols</p>
         </div>
-        <button onClick={load}
-          className="flex items-center gap-1.5 text-xs text-fort-muted border border-fort-border px-3 py-1.5 rounded-lg hover:text-white hover:border-white/20 transition-all">
+        <button onClick={load} className="btn-ghost text-xs gap-1.5 border border-[#1c2229]">
           <RefreshCw className="w-3 h-3" /> Refresh
         </button>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 bg-fort-danger/10 border border-fort-danger/30 rounded-xl px-4 py-2.5 text-fort-danger text-sm">
-          <AlertTriangle className="w-4 h-4" /> {error}
+        <div className="fc-card border-[#ef4444]/30 bg-[#ef4444]/5 px-4 py-3 flex items-center gap-2 text-[#ef4444] text-xs">
+          <AlertTriangle className="w-3.5 h-3.5" /> {error}
         </div>
       )}
 
       {!loading && alerts.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="card-fort p-4">
-            <p className="text-fort-muted text-xs mb-1">Total Alerts</p>
-            <p className="text-2xl font-bold font-mono text-white">{alerts.length}</p>
-          </div>
-          <div className="card-fort p-4">
-            <p className="text-fort-muted text-xs mb-1">Delivered</p>
-            <p className="text-2xl font-bold font-mono text-fort-green">{delivered}</p>
-          </div>
-          <div className="card-fort p-4">
-            <p className="text-fort-muted text-xs mb-1">Failed</p>
-            <p className="text-2xl font-bold font-mono text-fort-danger">{failed}</p>
-          </div>
+          {[
+            { label: 'Total Alerts', value: alerts.length, color: '#eeeeee' },
+            { label: 'Delivered', value: delivered, color: '#22c55e' },
+            { label: 'Failed', value: failed, color: '#ef4444' },
+          ].map(s => (
+            <div key={s.label} className="fc-card p-5">
+              <p className="fc-label mb-2">{s.label}</p>
+              <p className="font-mono text-2xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
+            </div>
+          ))}
         </div>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center h-40">
-          <Loader2 className="w-6 h-6 text-fort-cyan animate-spin" />
+          <Loader2 className="w-5 h-5 text-[#217eaa] animate-spin" />
         </div>
       ) : alerts.length === 0 ? (
-        <div className="card-fort p-12 text-center">
-          <Bell className="w-12 h-12 text-fort-muted mx-auto mb-4" />
-          <p className="text-white font-semibold">No alerts yet</p>
-          <p className="text-fort-muted text-sm mt-2">
+        <div className="fc-card p-16 text-center">
+          <Bell className="w-10 h-10 text-[#1c2229] mx-auto mb-4" />
+          <p className="text-[#eeeeee] font-medium mb-1">No alerts yet</p>
+          <p className="text-[#8ca4ac] text-xs max-w-xs mx-auto">
             Alerts fire automatically when AI judgments reach Warning level or above.
-            Configure email/webhook alerts on each protocol's settings.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {alerts.map((a, i) => {
-            const lvl = LEVEL_LABELS[a.level ?? 1] ?? LEVEL_LABELS[1];
-            return (
-              <motion.div key={a.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="card-fort p-4 flex items-start gap-4">
-                <div className="w-8 h-8 rounded-lg bg-fort-surface flex items-center justify-center flex-shrink-0">
-                  {a.channel === 'email'
-                    ? <Mail className="w-4 h-4 text-fort-cyan" />
-                    : <Webhook className="w-4 h-4 text-fort-warning" />
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-white text-sm font-medium capitalize">{a.channel} alert</span>
-                    <span className={`text-xs font-semibold ${lvl.color}`}>{lvl.label}</span>
-                    {a.delivered
-                      ? <CheckCircle className="w-3.5 h-3.5 text-fort-green" />
-                      : <XCircle className="w-3.5 h-3.5 text-fort-danger" />
-                    }
-                  </div>
-                  <p className="text-fort-muted text-xs truncate">{a.destination}</p>
-                  {!a.delivered && a.lastError && (
-                    <p className="text-fort-danger text-xs mt-0.5">{a.lastError}</p>
-                  )}
-                </div>
-                <span className="text-fort-muted text-xs flex-shrink-0">
-                  {formatDistanceToNow(new Date(a.sentAt), { addSuffix: true })}
-                </span>
-              </motion.div>
-            );
-          })}
+        <div className="fc-card overflow-hidden">
+          <table className="fc-table">
+            <thead>
+              <tr>
+                <th className="fc-th">Timestamp</th>
+                <th className="fc-th">Channel</th>
+                <th className="fc-th">Destination</th>
+                <th className="fc-th">Level</th>
+                <th className="fc-th">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alerts.map(a => {
+                const info = LEVEL_INFO[a.level ?? 1] ?? LEVEL_INFO[1];
+                return (
+                  <tr key={a.id} className="fc-tr">
+                    <td className="fc-td font-mono text-[#8ca4ac] text-xs whitespace-nowrap">
+                      {formatDistanceToNow(new Date(a.sentAt), { addSuffix: true })}
+                    </td>
+                    <td className="fc-td">
+                      <div className="flex items-center gap-2">
+                        {a.channel === 'email'
+                          ? <Mail className="w-3.5 h-3.5 text-[#217eaa]" />
+                          : <Webhook className="w-3.5 h-3.5 text-[#f59e0b]" />
+                        }
+                        <span className="text-xs capitalize">{a.channel}</span>
+                      </div>
+                    </td>
+                    <td className="fc-td">
+                      <span className="font-mono text-xs text-[#8ca4ac] truncate max-w-[180px] block">{a.destination}</span>
+                      {!a.delivered && a.lastError && (
+                        <span className="text-2xs text-[#ef4444]">{a.lastError}</span>
+                      )}
+                    </td>
+                    <td className="fc-td">
+                      <span className={info.badge}>{info.label}</span>
+                    </td>
+                    <td className="fc-td">
+                      {a.delivered
+                        ? <span className="flex items-center gap-1.5 text-xs text-[#22c55e] font-mono"><CheckCircle className="w-3.5 h-3.5" />Delivered</span>
+                        : <span className="flex items-center gap-1.5 text-xs text-[#ef4444] font-mono"><XCircle className="w-3.5 h-3.5" />Failed</span>
+                      }
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
