@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
-echo "[entrypoint] Running DB migrations..."
-/app/node_modules/.bin/tsx src/db/migrate.ts && echo "[entrypoint] Migrations done" || echo "[entrypoint] Migration skipped (non-fatal)"
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
 echo "[entrypoint] Starting API..."
 exec /app/node_modules/.bin/tsx src/index.ts
