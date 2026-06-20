@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from './index.js';
@@ -8,10 +8,36 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 async function runMigrations() {
   const client = await pool.connect();
   try {
-    console.log('Running migrations...');
-    const sql = readFileSync(join(__dirname, 'migrations/0000_initial.sql'), 'utf8');
-    await client.query(sql);
-    console.log('Migrations complete.');
+    // Track which migrations have run
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    const dir = join(__dirname, 'migrations');
+    const files = readdirSync(dir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
+
+    for (const file of files) {
+      const { rows } = await client.query(
+        'SELECT 1 FROM _migrations WHERE filename = $1',
+        [file],
+      );
+      if (rows.length > 0) {
+        console.log(`[migrate] Already applied: ${file}`);
+        continue;
+      }
+      console.log(`[migrate] Applying: ${file}`);
+      const sql = readFileSync(join(dir, file), 'utf8');
+      await client.query(sql);
+      await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
+      console.log(`[migrate] Done: ${file}`);
+    }
+
+    console.log('[migrate] All migrations applied.');
   } finally {
     client.release();
     await pool.end();
@@ -19,6 +45,6 @@ async function runMigrations() {
 }
 
 runMigrations().catch((err) => {
-  console.error('Migration failed:', err);
+  console.error('[migrate] Failed:', err);
   process.exit(1);
 });
