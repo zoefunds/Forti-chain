@@ -6,6 +6,7 @@ import { aiJudgments, protocols, users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { env } from '../../config/env.js';
 import { AlertService } from '../alerts/alertService.js';
+import { decryptForServer } from '../wallet/encryption.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,10 +52,8 @@ function buildClient() {
   return createClient({ chain: studionet });
 }
 
-function buildAccount() {
-  // Use the configured operator private key, or generate a random one for
-  // read-only / simulation flows.
-  const pk = env.GENLAYER_PRIVATE_KEY as `0x${string}` | undefined;
+function buildAccount(privateKey?: string) {
+  const pk = (privateKey || env.GENLAYER_PRIVATE_KEY) as `0x${string}` | undefined;
   return createAccount(pk || undefined);
 }
 
@@ -66,13 +65,26 @@ export class GenLayerService {
   private client = buildClient();
   private account = buildAccount();
 
+  accountForUser(user: typeof users.$inferSelect): ReturnType<typeof buildAccount> {
+    if ((user as any).serverEncryptedKey) {
+      try {
+        const pk = decryptForServer((user as any).serverEncryptedKey, user.id);
+        return buildAccount(pk);
+      } catch (err) {
+        console.error('[GenLayer] Failed to decrypt user wallet, falling back to deployer:', err);
+      }
+    }
+    return this.account;
+  }
+
   // ── Public entry point ─────────────────────────────────────────────────
 
   async analyzeProtocol(
     protocol: typeof protocols.$inferSelect,
-    _user:    typeof users.$inferSelect,
+    user:     typeof users.$inferSelect,
   ) {
     const signals = await this.gatherSignals(protocol);
+    const account = this.accountForUser(user);
 
     let judgment: ContractJudgment;
     let txHash = '';
@@ -80,7 +92,7 @@ export class GenLayerService {
     if (!CONTRACT_ADDRESS) {
       judgment = this.simulateJudgment(protocol, signals);
     } else {
-      const result = await this.callAnalyzeProtocol(protocol, signals);
+      const result = await this.callAnalyzeProtocol(protocol, signals, account);
       judgment = result.judgment;
       txHash   = result.txHash;
     }
@@ -121,11 +133,14 @@ export class GenLayerService {
 
   // ── Register protocol on-chain ─────────────────────────────────────────
 
-  async registerProtocolOnChain(protocol: typeof protocols.$inferSelect): Promise<string | null> {
+  async registerProtocolOnChain(
+    protocol: typeof protocols.$inferSelect,
+    account = this.account,
+  ): Promise<string | null> {
     if (!CONTRACT_ADDRESS) return null;
     try {
       const txHash = await this.client.writeContract({
-        account:      this.account,
+        account,
         address:      CONTRACT_ADDRESS,
         functionName: 'register_protocol',
         args: [
@@ -207,17 +222,18 @@ export class GenLayerService {
   private async callAnalyzeProtocol(
     protocol: typeof protocols.$inferSelect,
     signals:  SignalsBundle,
+    account = this.account,
   ): Promise<{ judgment: ContractJudgment; txHash: string }> {
 
-    // First ensure protocol is registered on-chain
-    await this.ensureProtocolRegistered(protocol);
+    // First ensure protocol is registered on-chain using the same user account
+    await this.ensureProtocolRegistered(protocol, account);
 
     const signalsJson = JSON.stringify(signals);
     const callerRef   = `api-${protocol.id.slice(0, 8)}-${Date.now()}`;
 
     // Send write transaction
     const txHash = await this.client.writeContract({
-      account:      this.account,
+      account,
       address:      CONTRACT_ADDRESS,
       functionName: 'analyze_protocol',
       args:         [protocol.id, signalsJson, callerRef],
@@ -257,7 +273,10 @@ export class GenLayerService {
 
   // ── Ensure protocol exists on-chain before analysis ────────────────────
 
-  private async ensureProtocolRegistered(protocol: typeof protocols.$inferSelect): Promise<void> {
+  private async ensureProtocolRegistered(
+    protocol: typeof protocols.$inferSelect,
+    account = this.account,
+  ): Promise<void> {
     // Fast path: DB flag means we already know it's on-chain
     if ((protocol as any).onChainRegistered) return;
 
@@ -273,10 +292,10 @@ export class GenLayerService {
         await db.update(protocols).set({ onChainRegistered: true }).where(eq(protocols.id, protocol.id)).catch(() => {});
         return;
       }
-      await this.registerProtocolOnChain(protocol);
+      await this.registerProtocolOnChain(protocol, account);
     } catch {
       // If read fails, attempt registration; registerProtocolOnChain handles "already registered" gracefully
-      await this.registerProtocolOnChain(protocol);
+      await this.registerProtocolOnChain(protocol, account);
     }
   }
 

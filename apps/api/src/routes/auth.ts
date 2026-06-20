@@ -7,6 +7,7 @@ import { db } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { generateWallet } from '../services/wallet/walletService.js';
+import { encryptForServer, decrypt } from '../services/wallet/encryption.js';
 import { env } from '../config/env.js';
 import { authenticate } from '../middleware/authenticate.js';
 
@@ -64,6 +65,7 @@ export async function authRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
     const walletData = generateWallet(password);
 
+    // Insert first to get the UUID, then encrypt the private key with the server key
     const [user] = await db.insert(users).values({
       email,
       passwordHash,
@@ -71,6 +73,17 @@ export async function authRoutes(app: FastifyInstance) {
       emailVerified: false,
       subscriptionTier: 'free',
     }).returning({ id: users.id, email: users.email, walletAddress: users.walletAddress });
+
+    // Derive the plaintext private key (we have the password right now) and store
+    // a server-only encrypted copy so the API can sign transactions on behalf of the user.
+    try {
+      const { decrypt: dec } = await import('../services/wallet/encryption.js');
+      const privateKey = dec(walletData.encryptedPrivateKey, password, walletData.walletSalt);
+      const serverEncryptedKey = encryptForServer(privateKey, user.id);
+      await db.update(users).set({ serverEncryptedKey }).where(eq(users.id, user.id));
+    } catch (err) {
+      console.error('[auth] Failed to store server encrypted key on register:', err);
+    }
 
     const token = app.jwt.sign({ id: user.id }, { expiresIn: '15m' });
     const refresh = app.jwt.sign({ id: user.id, type: 'refresh' }, { expiresIn: '7d' });
@@ -85,11 +98,29 @@ export async function authRoutes(app: FastifyInstance) {
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
     const { email, password } = body.data;
 
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const [user] = await db.select({
+      id: users.id, email: users.email, passwordHash: users.passwordHash,
+      walletAddress: users.walletAddress, subscriptionTier: users.subscriptionTier,
+      encryptedPrivateKey: users.encryptedPrivateKey, walletSalt: users.walletSalt,
+      serverEncryptedKey: users.serverEncryptedKey,
+    }).from(users).where(eq(users.email, email)).limit(1) as any[];
     if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return reply.status(401).send({ error: 'Invalid credentials' });
+
+    // Lazy-migrate: if serverEncryptedKey is missing, derive and store it now
+    // (existing users who registered before this feature was added)
+    if (!user.serverEncryptedKey) {
+      try {
+        const privateKey = decrypt(user.encryptedPrivateKey, password, user.walletSalt);
+        const serverEncryptedKey = encryptForServer(privateKey, user.id);
+        await db.update(users).set({ serverEncryptedKey }).where(eq(users.id, user.id));
+        user.serverEncryptedKey = serverEncryptedKey;
+      } catch (err) {
+        console.error('[auth] Failed to migrate server encrypted key on login:', err);
+      }
+    }
 
     const token = app.jwt.sign({ id: user.id }, { expiresIn: '15m' });
     const refresh = app.jwt.sign({ id: user.id, type: 'refresh' }, { expiresIn: '7d' });

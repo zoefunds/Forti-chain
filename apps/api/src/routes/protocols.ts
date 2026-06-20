@@ -35,9 +35,10 @@ export async function protocolRoutes(app: FastifyInstance) {
       userId: req.user.id,
     }).returning();
 
-    // Register on-chain asynchronously — don't block the HTTP response
+    // Register on-chain asynchronously using the user's own wallet — don't block the HTTP response
     const genLayer = new GenLayerService();
-    genLayer.registerProtocolOnChain(protocol).catch((err) =>
+    const userAccount = genLayer.accountForUser(req.user);
+    genLayer.registerProtocolOnChain(protocol, userAccount).catch((err) =>
       console.error('[GenLayer] background register_protocol failed:', err),
     );
 
