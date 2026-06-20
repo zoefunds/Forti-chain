@@ -124,11 +124,11 @@ export async function authRoutes(app: FastifyInstance) {
       console.error('[auth] Failed to send verification email:', err);
     }
 
-    const token = app.jwt.sign({ id: user.id }, { expiresIn: '15m' });
-    const refresh = app.jwt.sign({ id: user.id, type: 'refresh' }, { expiresIn: '7d' });
+    const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' });
+    const refresh = app.jwt.sign({ id: user.id, type: 'refresh' }, { expiresIn: '30d' });
 
-    reply.setCookie('access_token', token, { httpOnly: true, secure: false, sameSite: 'lax', path: '/' });
-    return { user, refresh };
+    reply.setCookie('access_token', token, { httpOnly: false, secure: true, sameSite: 'none', path: '/' });
+    return { user, token, refresh };
   });
 
   // POST /api/v1/auth/login
@@ -162,12 +162,13 @@ export async function authRoutes(app: FastifyInstance) {
       }
     }
 
-    const token = app.jwt.sign({ id: user.id }, { expiresIn: '15m' });
-    const refresh = app.jwt.sign({ id: user.id, type: 'refresh' }, { expiresIn: '7d' });
+    const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' });
+    const refresh = app.jwt.sign({ id: user.id, type: 'refresh' }, { expiresIn: '30d' });
 
-    reply.setCookie('access_token', token, { httpOnly: true, secure: false, sameSite: 'lax', path: '/' });
+    reply.setCookie('access_token', token, { httpOnly: false, secure: true, sameSite: 'none', path: '/' });
     return {
       user: { id: user.id, email: user.email, walletAddress: user.walletAddress, subscriptionTier: user.subscriptionTier, role: user.role },
+      token,
       refresh,
     };
   });
@@ -178,9 +179,9 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       const payload = app.jwt.verify<{ id: string; type: string }>(refresh);
       if (payload.type !== 'refresh') throw new Error();
-      const token = app.jwt.sign({ id: payload.id }, { expiresIn: '15m' });
-      reply.setCookie('access_token', token, { httpOnly: true, secure: false, sameSite: 'lax', path: '/' });
-      return { ok: true };
+      const token = app.jwt.sign({ id: payload.id }, { expiresIn: '7d' });
+      reply.setCookie('access_token', token, { httpOnly: false, secure: true, sameSite: 'none', path: '/' });
+      return { ok: true, token };
     } catch {
       return reply.status(401).send({ error: 'Invalid refresh token' });
     }

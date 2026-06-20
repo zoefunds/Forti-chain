@@ -21,6 +21,7 @@ export const env = {
   GENLAYER_RPC_URL: optional('GENLAYER_RPC_URL', 'https://studio.genlayer.com/api'),
   GENLAYER_CONTRACT_ADDRESS: optional('GENLAYER_CONTRACT_ADDRESS', ''),
   GENLAYER_PRIVATE_KEY: optional('GENLAYER_PRIVATE_KEY', ''),
+  TREASURY_WALLET: optional('TREASURY_WALLET', ''),
   BREVO_API_KEY: optional('BREVO_API_KEY', ''),
   EMAIL_FROM: optional('EMAIL_FROM', 'alerts@fortichain.io'),
   ETHERSCAN_API_KEY: optional('ETHERSCAN_API_KEY', ''),

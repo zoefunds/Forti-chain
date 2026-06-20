@@ -8,17 +8,17 @@ import { usePolling } from '@/lib/usePolling';
 
 const PLANS = [
   {
-    id: 'free', label: 'Free', icon: ShieldCheck, price: 0,
+    id: 'free', label: 'Free', icon: ShieldCheck, genPrice: 0,
     perks: ['1 protocol', '10 AI judgments/month', 'Email alerts'],
     accent: '#8ca4ac',
   },
   {
-    id: 'pro', label: 'Pro', icon: Star, price: 49,
+    id: 'pro', label: 'Pro', icon: Star, genPrice: 50,
     perks: ['10 protocols', '500 AI judgments/month', 'Email + webhook alerts', 'Priority analysis'],
     accent: '#217eaa', featured: true,
   },
   {
-    id: 'enterprise', label: 'Enterprise', icon: Crown, price: 299,
+    id: 'enterprise', label: 'Enterprise', icon: Crown, genPrice: 200,
     perks: ['Unlimited protocols', 'Unlimited judgments', 'All alert channels', 'SLA + dedicated support'],
     accent: '#f59e0b',
   },
@@ -59,11 +59,11 @@ export default function WalletPage() {
     } finally { setExporting(false); }
   };
 
-  const subscribe = async (planId: string) => {
+  const subscribe = async (planId: string, genPrice: number) => {
     setSubscribing(planId); setSubscribeMsg('');
     try {
-      await api.post('/api/v1/wallet/subscribe', { planId, months: 1 });
-      setSubscribeMsg(`Upgraded to ${planId}!`);
+      const res = await api.post('/api/v1/wallet/subscribe', { planId, months: 1 });
+      setSubscribeMsg(`Upgraded to ${planId}! ${genPrice} GEN deducted. ${res.data.txHash ? `Tx: ${res.data.txHash.slice(0, 16)}…` : ''}`);
       await load(); await refreshBalance();
     } catch (err: any) {
       setSubscribeMsg(err.response?.data?.error ?? 'Subscription failed.');
@@ -163,10 +163,19 @@ export default function WalletPage() {
 
       {/* Subscription plans */}
       <div>
-        <h2 className="text-[#eeeeee] font-semibold text-sm mb-4">Upgrade Plan</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-[#eeeeee] font-semibold text-sm">Upgrade Plan</h2>
+            <p className="text-2xs text-[#8ca4ac] mt-0.5 font-mono">Paid in GEN tokens · deducted on-chain from your wallet</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-[#217eaa]/30 bg-[#217eaa]/5">
+            <span className="text-2xs font-mono text-[#8ca4ac]">Balance:</span>
+            <span className="font-mono text-sm font-bold text-[#217eaa] tabular-nums">{genBalance.toFixed(2)} GEN</span>
+          </div>
+        </div>
         {subscribeMsg && (
           <div className={`mb-4 px-4 py-3 rounded border text-xs font-mono ${
-            subscribeMsg.includes('fail') || subscribeMsg.includes('Error')
+            subscribeMsg.includes('fail') || subscribeMsg.includes('Insufficient') || subscribeMsg.includes('Error')
               ? 'bg-[#ef4444]/10 border-[#ef4444]/30 text-[#ef4444]'
               : 'bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e]'
           }`}>{subscribeMsg}</div>
@@ -175,6 +184,7 @@ export default function WalletPage() {
           {PLANS.map(plan => {
             const Icon = plan.icon;
             const isCurrent = user?.subscriptionTier === plan.id;
+            const canAfford = plan.genPrice === 0 || genBalance >= plan.genPrice;
             return (
               <motion.div key={plan.id}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -184,12 +194,24 @@ export default function WalletPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <Icon className="w-4 h-4" style={{ color: plan.accent }} />
                   <h3 className="text-[#eeeeee] font-semibold text-sm">{plan.label}</h3>
-                  {isCurrent && <span className="ml-auto fc-badge-secure text-2xs">Active</span>}
+                  {isCurrent && <span className="ml-auto fc-badge fc-badge-secure text-2xs">Active</span>}
                 </div>
-                <p className="font-mono text-xl font-bold text-[#eeeeee] mb-4 tabular-nums">
-                  {plan.price === 0 ? 'Free' : `$${plan.price}`}
-                  {plan.price > 0 && <span className="text-[#8ca4ac] text-xs font-normal">/mo</span>}
-                </p>
+                {/* Price in GEN */}
+                <div className="mb-4">
+                  {plan.genPrice === 0 ? (
+                    <p className="font-mono text-xl font-bold text-[#eeeeee]">Free</p>
+                  ) : (
+                    <div>
+                      <p className="font-mono text-2xl font-bold tabular-nums" style={{ color: plan.accent }}>
+                        {plan.genPrice} <span className="text-sm font-normal text-[#8ca4ac]">GEN</span>
+                      </p>
+                      <p className="text-2xs text-[#8ca4ac] font-mono mt-0.5">per month</p>
+                    </div>
+                  )}
+                  {plan.genPrice > 0 && !canAfford && !isCurrent && (
+                    <p className="text-2xs text-[#f59e0b] mt-1 font-mono">Need {plan.genPrice - genBalance > 0 ? (plan.genPrice - genBalance).toFixed(1) : 0} more GEN</p>
+                  )}
+                </div>
                 <ul className="space-y-1.5 mb-5">
                   {plan.perks.map(p => (
                     <li key={p} className="flex items-center gap-2 text-2xs text-[#8ca4ac]">
@@ -198,25 +220,26 @@ export default function WalletPage() {
                   ))}
                 </ul>
                 <button
-                  onClick={() => subscribe(plan.id)}
-                  disabled={isCurrent || !!subscribing || plan.id === 'free'}
+                  onClick={() => subscribe(plan.id, plan.genPrice)}
+                  disabled={isCurrent || !!subscribing || plan.id === 'free' || (!canAfford && !isCurrent)}
                   className={`w-full py-2 rounded text-xs font-semibold transition-all disabled:opacity-50 ${
                     plan.featured
                       ? 'bg-[#217eaa] text-white hover:bg-[#1a6690]'
                       : 'border border-[#1c2229] text-[#8ca4ac] hover:border-[#217eaa]/40 hover:text-[#eeeeee]'
                   }`}>
                   {subscribing === plan.id
-                    ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" />Processing…</span>
+                    ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" />Processing on-chain…</span>
                     : isCurrent ? 'Current Plan'
                     : plan.id === 'free' ? 'Default'
-                    : `Upgrade to ${plan.label}`}
+                    : !canAfford ? `Need ${plan.genPrice} GEN`
+                    : `Pay ${plan.genPrice} GEN → ${plan.label}`}
                 </button>
               </motion.div>
             );
           })}
         </div>
         <p className="text-2xs text-[#8ca4ac] font-mono mt-3">
-          Subscriptions processed on-chain via the FortiChain Sentinel contract. GEN tokens deducted from your wallet.
+          GEN tokens are sent on-chain to the FortiChain treasury wallet on GenLayer StudioNet. Top up your wallet using the faucet above.
         </p>
       </div>
 

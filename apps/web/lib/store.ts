@@ -29,6 +29,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         await api.post('/api/v1/auth/logout').catch(() => {});
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('access_token');
         set({ user: null });
         window.location.href = '/auth/login';
       },

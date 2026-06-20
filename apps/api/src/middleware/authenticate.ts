@@ -26,8 +26,14 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
       return;
     }
 
-    // JWT auth
-    await req.jwtVerify();
+    // JWT auth — prefer Authorization header (more reliable through proxies), fall back to cookie
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      req.user = req.server.jwt.verify(token) as any;
+    } else {
+      await req.jwtVerify();
+    }
     const payload = req.user as { id: string };
     const [user] = await db.select().from(users)
       .where(eq(users.id, payload.id)).limit(1);

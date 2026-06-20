@@ -19,7 +19,8 @@ export default function LoginPage() {
     setLoading(true); setError('');
     try {
       const res = await api.post('/api/v1/auth/login', form);
-      localStorage.setItem('refresh_token', res.data.refresh);
+      localStorage.setItem('access_token', res.data.token ?? '')
+      localStorage.setItem('refresh_token', res.data.refresh ?? '')
       setUser(res.data.user);
       router.push('/dashboard');
     } catch (err: any) {
