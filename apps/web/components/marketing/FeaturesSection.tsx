@@ -10,7 +10,7 @@ const features = [
   {
     icon: Brain,
     title: 'AI Validator Consensus',
-    description: 'GenLayer&apos;s network of AI validators independently analyze threat signals and reach consensus before triggering any action.',
+    description: 'GenLayer&apos;s network of 5 AI validators independently analyze threat signals — requiring ≥4 to agree before any action is triggered.',
     color: 'text-fort-cyan',
     bg: 'bg-fort-cyan/10 border-fort-cyan/20',
   },
@@ -23,15 +23,15 @@ const features = [
   },
   {
     icon: Zap,
-    title: 'Sub-10 Second Response',
-    description: 'From signal detection to consensus judgment in under 10 seconds — before an exploit can propagate.',
+    title: '1–3 Minute Consensus',
+    description: 'From signal detection to an on-chain consensus judgment in 1–3 minutes across 5 independent AI validators.',
     color: 'text-fort-warning',
     bg: 'bg-fort-warning/10 border-fort-warning/20',
   },
   {
     icon: Shield,
-    title: '4-Level Response Framework',
-    description: 'Graduated responses from Warning to Full Containment, mapped to exploit severity and confidence.',
+    title: '5-Tier Response Framework',
+    description: 'Graduated tiers from Safe to Critical — each mapped to exploit severity, confidence level, and recommended action.',
     color: 'text-fort-cyan',
     bg: 'bg-fort-cyan/10 border-fort-cyan/20',
   },

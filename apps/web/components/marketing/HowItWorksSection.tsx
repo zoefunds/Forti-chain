@@ -15,7 +15,7 @@ const steps = [
     num: '02',
     icon: Brain,
     title: 'AI Validator Analysis',
-    description: 'Each GenLayer validator independently evaluates the threat signals using LLM reasoning trained on historical exploits.',
+    description: '5 GenLayer validators independently evaluate threat signals using LLM reasoning trained on historical DeFi exploits.',
     color: 'text-fort-warning',
     border: 'border-fort-warning/30',
   },
@@ -23,7 +23,7 @@ const steps = [
     num: '03',
     icon: CheckCircle,
     title: 'Consensus Judgment',
-    description: 'GenLayer&apos;s optimistic consensus ensures ≥2/3 validators agree on the risk level before a judgment is committed on-chain.',
+    description: 'GenLayer&apos;s optimistic consensus requires ≥4 of 5 validators to agree on the risk level before a judgment is committed on-chain.',
     color: 'text-fort-green',
     border: 'border-fort-green/30',
   },
@@ -49,7 +49,7 @@ export function HowItWorksSection() {
           <span className="text-fort-cyan text-sm font-semibold tracking-widest uppercase">Process</span>
           <h2 className="text-4xl md:text-5xl font-bold text-white mt-3 mb-4">How FortiChain Works</h2>
           <p className="text-fort-muted text-lg max-w-2xl mx-auto">
-            From anomaly to judgment in under 10 seconds, powered by decentralized AI consensus.
+            From anomaly to on-chain judgment in 1–3 minutes, powered by 5 independent AI validators.
           </p>
         </motion.div>
 
