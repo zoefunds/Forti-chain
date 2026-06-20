@@ -1,0 +1,44 @@
+app = "fortichain-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+  # Build context must be the monorepo root so COPY package*.json ./ works
+  # Deploy with: fly deploy --dockerfile apps/api/Dockerfile from repo root
+
+[env]
+  PORT = "3001"
+  NODE_ENV = "production"
+  GENLAYER_RPC_URL = "https://studio.genlayer.com/api"
+  GENLAYER_CONTRACT_ADDRESS = "0xAbf8a0A08C73Faa30bA8717DDffb9328331Fec07"
+  EMAIL_FROM = "alerts@fortichain.io"
+  BCRYPT_ROUNDS = "12"
+
+# Secrets (set via `fly secrets set KEY=value`):
+# DATABASE_URL        — Neon/Supabase/Fly Postgres connection string
+# REDIS_URL           — Upstash/Fly Redis URL
+# JWT_SECRET          — 64-char hex
+# JWT_REFRESH_SECRET  — 64-char hex
+# WALLET_ENCRYPTION_SECRET — 32-char hex
+# GENLAYER_PRIVATE_KEY    — operator private key (0x...)
+# RESEND_API_KEY          — from resend.com
+# CORS_ORIGIN             — https://fortichain.vercel.app (or your domain)
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
