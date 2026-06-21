@@ -262,14 +262,38 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // POST /api/v1/auth/resend-verification
-  app.post('/resend-verification', { preHandler: authenticate }, async (req, reply) => {
-    const u = req.user as any;
-    if (u.emailVerified) return reply.status(400).send({ error: 'Email already verified' });
+  // Accepts optional email in body (no auth required) so users with stale tokens can still resend
+  app.post('/resend-verification', async (req, reply) => {
+    let userRecord: typeof users.$inferSelect | null = null;
+
+    // Try authenticated path first
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (token) {
+      try {
+        const payload = app.jwt.verify<{ id: string }>(token);
+        const [u] = await db.select().from(users).where(eq(users.id, payload.id)).limit(1);
+        if (u) userRecord = u;
+      } catch {}
+    }
+
+    // Fall back to email in body
+    if (!userRecord) {
+      const { email } = req.body as { email?: string };
+      if (email) {
+        const [u] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
+        if (u) userRecord = u;
+      }
+    }
+
+    if (!userRecord) return reply.status(400).send({ error: 'User not found' });
+    if (userRecord.emailVerified) return { ok: true, alreadyVerified: true };
+
     try {
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await db.update(users).set({ emailVerifyToken: verifyToken, emailVerifyExpiry: verifyExpiry }).where(eq(users.id, u.id));
-      await sendVerificationEmail(u.email, verifyToken);
+      await db.update(users).set({ emailVerifyToken: verifyToken, emailVerifyExpiry: verifyExpiry }).where(eq(users.id, userRecord.id));
+      await sendVerificationEmail(userRecord.email, verifyToken);
     } catch (err) {
       console.error('[auth] Failed to resend verification email:', err);
       return reply.status(500).send({ error: 'Failed to send email' });

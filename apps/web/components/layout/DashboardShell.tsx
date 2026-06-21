@@ -150,7 +150,8 @@ function EmailVerificationBanner({ email }: { email: string }) {
   async function resend() {
     setSending(true);
     try {
-      await api.post('/api/v1/auth/resend-verification');
+      // Pass email in body so this works even if access token is stale
+      await api.post('/api/v1/auth/resend-verification', { email });
       setSent(true);
     } catch {}
     setSending(false);
