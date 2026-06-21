@@ -25,15 +25,9 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.patch('/notifications', async (req, reply) => {
     const body = NotifSchema.safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
-    // Store prefs in user metadata column if it exists, otherwise just return ok
-    // The schema may not have these columns yet — gracefully handle
-    try {
-      await db.update(users)
-        .set({ emailAlertsEnabled: body.data.emailAlerts } as any)
-        .where(eq(users.id, req.user.id));
-    } catch {
-      // Column may not exist yet — still return ok so UI doesn't break
-    }
+    await db.update(users)
+      .set({ emailAlertsEnabled: body.data.emailAlerts })
+      .where(eq(users.id, req.user.id));
     return { ok: true };
   });
 

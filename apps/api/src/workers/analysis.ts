@@ -67,6 +67,7 @@ async function tick() {
 }
 
 export function analysisWorker() {
+  tick();
   setInterval(tick, 5 * 60_000);
   console.log('  ✓ Analysis worker started (5min interval, signal + scheduled)');
 }

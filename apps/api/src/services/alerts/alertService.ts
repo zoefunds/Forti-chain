@@ -25,10 +25,10 @@ export class AlertService {
       dispatches.push(this.sendWebhook(judgment, protocol));
     }
 
-    // Also alert protocol owner
+    // Also alert protocol owner (if they haven't opted out of email alerts)
     const [owner] = await db.select().from(users)
       .where(eq(users.id, protocol.userId)).limit(1);
-    if (owner?.email && owner.email !== protocol.alertEmail) {
+    if (owner?.email && owner.email !== protocol.alertEmail && owner.emailAlertsEnabled !== false) {
       dispatches.push(this.sendEmail(judgment, protocol, owner.email));
     }
 

@@ -20,7 +20,7 @@ function Section({ icon: Icon, title, children }: { icon: any; title: string; ch
 export default function SettingsPage() {
   const { user } = useAuthStore();
 
-  const [emailNotifs, setEmailNotifs] = useState(true);
+  const [emailNotifs, setEmailNotifs] = useState((user as any)?.emailAlertsEnabled !== false);
   const [notifSaving, setNotifSaving] = useState(false);
   const [notifSaved, setNotifSaved] = useState(false);
 
@@ -30,7 +30,6 @@ export default function SettingsPage() {
   const [webhookError, setWebhookError] = useState('');
 
   const [etherscanKey, setEtherscanKey] = useState('');
-  const [fortaKey, setFortaKey] = useState('');
   const [coingeckoKey, setCoingeckoKey] = useState('');
   const [signalSaving, setSignalSaving] = useState(false);
   const [signalSaved, setSignalSaved] = useState(false);
@@ -59,7 +58,6 @@ export default function SettingsPage() {
     try {
       await api.patch('/api/v1/settings/signal-keys', {
         etherscanApiKey: etherscanKey || undefined,
-        fortaApiKey: fortaKey || undefined,
         coingeckoApiKey: coingeckoKey || undefined,
       });
       setSignalSaved(true); setTimeout(() => setSignalSaved(false), 2000);
@@ -132,14 +130,13 @@ export default function SettingsPage() {
       {/* Signal API Keys */}
       <Section icon={Key} title="Signal Data Sources">
         <p className="text-xs text-[#8ca4ac] mb-4">
-          API keys for ingesting on-chain and off-chain intelligence signals. The more sources, the better the AI analysis.
+          Optional API keys to enhance signal ingestion. GoPlus and Reddit run automatically for free — these keys unlock higher rate limits and Etherscan on-chain data.
         </p>
         {signalError && <p className="text-[#ef4444] text-xs mb-3">{signalError}</p>}
         <div className="space-y-3">
           {[
-            { label: 'Etherscan API Key', sub: 'on-chain monitoring', value: etherscanKey, set: setEtherscanKey, ph: 'YourApiKeyToken' },
-            { label: 'Forta API Key', sub: 'threat intelligence', value: fortaKey, set: setFortaKey, ph: 'forta_xxxxxxxx' },
-            { label: 'CoinGecko API Key', sub: 'TVL / price data', value: coingeckoKey, set: setCoingeckoKey, ph: 'CG-xxxxxxxxxxxxxxxx' },
+            { label: 'Etherscan API Key', sub: 'on-chain tx monitoring', value: etherscanKey, set: setEtherscanKey, ph: 'YourApiKeyToken' },
+            { label: 'CoinGecko API Key', sub: 'price & TVL data', value: coingeckoKey, set: setCoingeckoKey, ph: 'CG-xxxxxxxxxxxxxxxx' },
           ].map(f => (
             <div key={f.label}>
               <label className="fc-label block mb-1.5">

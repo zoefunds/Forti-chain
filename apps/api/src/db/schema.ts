@@ -21,6 +21,7 @@ export const users = pgTable('users', {
   emailVerified:        boolean('email_verified').default(false),
   emailVerifyToken:     varchar('email_verify_token', { length: 128 }),
   emailVerifyExpiry:    timestamp('email_verify_expiry'),
+  emailAlertsEnabled:   boolean('email_alerts_enabled').default(true),
   createdAt:            timestamp('created_at').defaultNow().notNull(),
   updatedAt:            timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({

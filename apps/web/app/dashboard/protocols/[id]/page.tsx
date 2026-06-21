@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Zap, Loader2, CheckCircle, Clock, X,
-  ShieldAlert, AlertTriangle, ShieldCheck, Link2,
+  ShieldAlert, AlertTriangle, ShieldCheck, Link2, Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -151,6 +151,7 @@ export default function ProtocolDetailPage() {
   const [selectedJudgment, setSelectedJudgment] = useState<any>(null);
   const [intervalHours, setIntervalHours] = useState(0);
   const [savingInterval, setSavingInterval] = useState(false);
+  const [intervalSaved, setIntervalSaved] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -259,12 +260,12 @@ export default function ProtocolDetailPage() {
             disabled={savingInterval}
             onClick={async () => {
               setSavingInterval(true);
-              try { await api.put(`/api/v1/protocols/${id}`, { autoAnalyzeIntervalHours: intervalHours }); await load(); } catch {}
+              try { await api.put(`/api/v1/protocols/${id}`, { autoAnalyzeIntervalHours: intervalHours }); await load(); setIntervalSaved(true); setTimeout(() => setIntervalSaved(false), 2000); } catch {}
               setSavingInterval(false);
             }}
             className="btn-ghost text-xs py-1.5 px-3"
           >
-            {savingInterval ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+            {savingInterval ? <Loader2 className="w-3 h-3 animate-spin" /> : intervalSaved ? <><Check className="w-3 h-3" /> Saved!</> : 'Save'}
           </button>
         </div>
       </div>
