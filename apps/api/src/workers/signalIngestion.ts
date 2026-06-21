@@ -28,30 +28,48 @@ async function ingestEtherscan(protocol: typeof protocols.$inferSelect) {
   } catch {}
 }
 
-// ── Forta — security alerts ───────────────────────────────────────
-async function ingestForta(protocol: typeof protocols.$inferSelect) {
+// ── GoPlus Security — contract risk scan (no API key needed) ─────
+async function ingestGoPlus(protocol: typeof protocols.$inferSelect) {
   if (!protocol.contractAddress) return;
   try {
-    const res = await axios.post('https://api.forta.network/graphql', {
-      query: `query {
-        alerts(input: {
-          addresses: ["${protocol.contractAddress}"]
-          first: 10
-          severity: [CRITICAL, HIGH, MEDIUM]
-        }) {
-          alerts { alertId description severity protocol name createdAt }
-        }
-      }`,
-    }, { timeout: 10000, headers: env.FORTA_API_KEY ? { Authorization: `Bearer ${env.FORTA_API_KEY}` } : {} });
+    const chainMap: Record<string, string> = {
+      ethereum: '1', arbitrum: '42161', optimism: '10',
+      polygon: '137', base: '8453', bnb: '56', avalanche: '43114',
+    };
+    const chainId = chainMap[protocol.chain?.toLowerCase()] ?? '1';
+    const res = await axios.get(
+      `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${protocol.contractAddress}`,
+      { timeout: 10000 },
+    );
+    const result = res.data?.result?.[protocol.contractAddress.toLowerCase()];
+    if (!result) return;
 
-    const alerts = res.data?.data?.alerts?.alerts ?? [];
-    if (alerts.length > 0) {
+    const risks: string[] = [];
+    if (result.is_honeypot === '1') risks.push('HONEYPOT detected');
+    if (result.is_blacklisted === '1') risks.push('contract blacklisted');
+    if (result.is_proxy === '1') risks.push('upgradeable proxy');
+    if (result.can_take_back_ownership === '1') risks.push('ownership reclaim risk');
+    if (result.owner_change_balance === '1') risks.push('owner can change balances');
+    if (result.hidden_owner === '1') risks.push('hidden owner');
+    if (result.selfdestruct === '1') risks.push('self-destruct enabled');
+    if (Number(result.buy_tax) > 10) risks.push(`high buy tax: ${result.buy_tax}%`);
+    if (Number(result.sell_tax) > 10) risks.push(`high sell tax: ${result.sell_tax}%`);
+
+    if (risks.length > 0) {
       await db.insert(signalIngestions).values({
         protocolId: protocol.id,
-        source: 'forta',
+        source: 'goplus',
         content: {
-          summary: `Forta: ${alerts.length} security alert(s) — highest: ${alerts[0]?.severity}`,
-          alerts: alerts.slice(0, 5),
+          summary: `GoPlus: ${risks.length} risk flag(s) — ${risks.join(', ')}`,
+          risks,
+          contractAddress: protocol.contractAddress,
+          chainId,
+          raw: {
+            isHoneypot: result.is_honeypot,
+            buyTax: result.buy_tax,
+            sellTax: result.sell_tax,
+            holderCount: result.holder_count,
+          },
         },
       });
     }
@@ -157,28 +175,33 @@ async function ingestNews(protocol: typeof protocols.$inferSelect) {
   } catch {}
 }
 
-// ── Twitter/X — social sentiment ─────────────────────────────────
-async function ingestTwitter(protocol: typeof protocols.$inferSelect) {
-  if (!env.TWITTER_BEARER_TOKEN) return;
+// ── Reddit — community security sentiment (free, no key) ─────────
+async function ingestReddit(protocol: typeof protocols.$inferSelect) {
   try {
-    const query = encodeURIComponent(`${protocol.name} hack OR exploit OR vulnerability OR rugpull lang:en -is:retweet`);
+    const query = encodeURIComponent(`${protocol.name} hack exploit vulnerability rugpull`);
+    const subreddits = 'defi+ethereum+CryptoCurrency+ethfinance';
     const res = await axios.get(
-      `https://api.twitter.com/2/tweets/search/recent?query=${query}&max_results=10&tweet.fields=created_at,public_metrics`,
-      { timeout: 8000, headers: { Authorization: `Bearer ${env.TWITTER_BEARER_TOKEN}` } },
+      `https://www.reddit.com/r/${subreddits}/search.json?q=${query}&sort=new&limit=10&restrict_sr=1&t=day`,
+      { timeout: 8000, headers: { 'User-Agent': 'FortiChain/1.0 security-monitor' } },
     );
-    const tweets = res.data?.data ?? [];
-    if (tweets.length > 0) {
+    const posts = res.data?.data?.children ?? [];
+    const relevant = posts.filter((p: any) => {
+      const text = `${p.data?.title} ${p.data?.selftext}`.toLowerCase();
+      const name = protocol.name.toLowerCase();
+      return text.includes(name.split(' ')[0]);
+    });
+    if (relevant.length > 0) {
       await db.insert(signalIngestions).values({
         protocolId: protocol.id,
-        source: 'twitter',
+        source: 'reddit',
         content: {
-          summary: `${tweets.length} recent tweet(s) about ${protocol.name} security concerns`,
-          tweets: tweets.slice(0, 5).map((t: any) => ({
-            id: t.id,
-            text: t.text?.slice(0, 200),
-            createdAt: t.created_at,
-            likes: t.public_metrics?.like_count,
-            retweets: t.public_metrics?.retweet_count,
+          summary: `${relevant.length} Reddit post(s) about ${protocol.name} security concerns`,
+          posts: relevant.slice(0, 5).map((p: any) => ({
+            title: p.data?.title?.slice(0, 200),
+            url: `https://reddit.com${p.data?.permalink}`,
+            score: p.data?.score,
+            comments: p.data?.num_comments,
+            created: new Date(p.data?.created_utc * 1000).toISOString(),
           })),
         },
       });
@@ -194,11 +217,11 @@ async function tick() {
     await Promise.allSettled(
       activeProtocols.flatMap(p => [
         ingestEtherscan(p),
-        ingestForta(p),
+        ingestGoPlus(p),
         ingestDeFiLlama(p),
         ingestCoinGecko(p),
         ingestNews(p),
-        ingestTwitter(p),
+        ingestReddit(p),
       ]),
     );
     workerHealth.signalIngestion.lastRun = new Date();
@@ -211,5 +234,5 @@ async function tick() {
 export function signalIngestionWorker() {
   tick();
   setInterval(tick, 60_000);
-  console.log('  ✓ Signal ingestion worker started (60s interval, 6 sources)');
+  console.log('  ✓ Signal ingestion worker started (60s interval, 6 sources: Etherscan·GoPlus·DeFiLlama·CoinGecko·News·Reddit)');
 }
