@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Webhook, User, Key, Check, Loader2, AlertTriangle, Link as LinkIcon } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { api } from '@/lib/api';
@@ -18,9 +18,21 @@ function Section({ icon: Icon, title, children }: { icon: any; title: string; ch
 }
 
 export default function SettingsPage() {
-  const { user } = useAuthStore();
+  const { user, fetchMe } = useAuthStore();
 
-  const [emailNotifs, setEmailNotifs] = useState((user as any)?.emailAlertsEnabled !== false);
+  // Seed from a fresh /auth/me fetch on mount — cached user may lack emailAlertsEnabled
+  const [emailNotifs, setEmailNotifs] = useState(true);
+  const [prefLoaded, setPrefLoaded] = useState(false);
+
+  useEffect(() => {
+    api.get('/api/v1/auth/me').then(res => {
+      setEmailNotifs(res.data.user.emailAlertsEnabled !== false);
+      setPrefLoaded(true);
+    }).catch(() => {
+      setEmailNotifs((user as any)?.emailAlertsEnabled !== false);
+      setPrefLoaded(true);
+    });
+  }, []);
   const [notifSaving, setNotifSaving] = useState(false);
   const [notifSaved, setNotifSaved] = useState(false);
 
@@ -39,6 +51,7 @@ export default function SettingsPage() {
     setNotifSaving(true);
     try {
       await api.patch('/api/v1/settings/notifications', { emailAlerts: emailNotifs });
+      await fetchMe(); // refresh cached user so reload reflects saved value
       setNotifSaved(true); setTimeout(() => setNotifSaved(false), 2000);
     } catch {} finally { setNotifSaving(false); }
   };
@@ -98,8 +111,8 @@ export default function SettingsPage() {
             <p className="text-[#eeeeee] text-sm">Email alerts</p>
             <p className="text-2xs text-[#8ca4ac] mt-0.5">Receive security alerts at your account email</p>
           </div>
-          <button onClick={() => setEmailNotifs(!emailNotifs)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${emailNotifs ? 'bg-[#217eaa]' : 'bg-[#1c2229]'}`}>
+          <button onClick={() => prefLoaded && setEmailNotifs(!emailNotifs)}
+            className={`relative w-10 h-5 rounded-full transition-colors ${!prefLoaded ? 'opacity-50' : ''} ${emailNotifs ? 'bg-[#217eaa]' : 'bg-[#1c2229]'}`}>
             <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${emailNotifs ? 'translate-x-5' : ''}`} />
           </button>
         </div>
