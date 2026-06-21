@@ -1,4 +1,4 @@
-import * as Brevo from '@getbrevo/brevo';
+import { BrevoClient } from '@getbrevo/brevo';
 import axios from 'axios';
 import { db } from '../../db/index.js';
 import { alertsSent, protocols, users, aiJudgments } from '../../db/schema.js';
@@ -9,11 +9,7 @@ const LEVEL_LABELS = ['', 'Warning', 'Restricted Mode', 'Emergency Pause', 'Full
 const LEVEL_COLORS = ['', '#FF9500', '#FF6B00', '#FF3B30', '#FF0000'];
 
 export class AlertService {
-  private brevo = (() => {
-    const api = new Brevo.TransactionalEmailsApi();
-    api.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, env.BREVO_API_KEY);
-    return api;
-  })();
+  private brevo = new BrevoClient({ apiKey: env.BREVO_API_KEY });
 
   async dispatchAlerts(
     judgment: typeof aiJudgments.$inferSelect,
@@ -49,11 +45,11 @@ export class AlertService {
     const levelColor = LEVEL_COLORS[judgment.level] ?? '#888';
 
     try {
-      const emailPayload = new Brevo.SendSmtpEmail();
-      emailPayload.sender = { email: env.EMAIL_FROM, name: 'FortiChain' };
-      emailPayload.to = [{ email: destination }];
-      emailPayload.subject = `[FortiChain] ${levelLabel} Alert — ${protocol.name}`;
-      emailPayload.htmlContent = `
+      await this.brevo.transactionalEmails.sendTransacEmail({
+        sender: { email: env.EMAIL_FROM, name: 'FortiChain' },
+        to: [{ email: destination }],
+        subject: `[FortiChain] ${levelLabel} Alert — ${protocol.name}`,
+        htmlContent: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#0A0E1A;padding:24px;border-radius:8px 8px 0 0">
             <h1 style="color:#00D4FF;margin:0">&#x1F6E1; FortiChain Alert</h1>
@@ -72,8 +68,8 @@ export class AlertService {
             </p>
           </div>
         </div>
-      `;
-      await this.brevo.sendTransacEmail(emailPayload);
+        `,
+      });
 
       await db.insert(alertsSent).values({
         judgmentId: judgment.id,

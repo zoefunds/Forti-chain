@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import * as Brevo from '@getbrevo/brevo';
+import { BrevoClient } from '@getbrevo/brevo';
 import { db } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -12,15 +12,15 @@ import { env } from '../config/env.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { NotificationService } from '../services/notifications/notificationService.js';
 
+const brevo = new BrevoClient({ apiKey: env.BREVO_API_KEY });
+
 async function sendVerificationEmail(to: string, token: string) {
-  const brevoApi = new Brevo.TransactionalEmailsApi();
-  brevoApi.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, env.BREVO_API_KEY);
   const url = `https://forti-chain.vercel.app/auth/verify-email?token=${token}`;
-  const email = new Brevo.SendSmtpEmail();
-  email.sender = { email: env.EMAIL_FROM, name: 'FortiChain' };
-  email.to = [{ email: to }];
-  email.subject = '[FortiChain] Verify your email address';
-  email.htmlContent = `
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender: { email: env.EMAIL_FROM, name: 'FortiChain' },
+    to: [{ email: to }],
+    subject: '[FortiChain] Verify your email address',
+    htmlContent: `
     <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
       <div style="background:#0d1014;padding:24px;border-radius:8px 8px 0 0;border-bottom:1px solid #1c2229">
         <h1 style="color:#217eaa;margin:0;font-size:18px">&#x1F6E1; FortiChain</h1>
@@ -36,22 +36,20 @@ async function sendVerificationEmail(to: string, token: string) {
         <p style="color:#8ca4ac;font-size:11px;font-family:monospace">Or copy: ${url}</p>
       </div>
     </div>
-  `;
-  await brevoApi.sendTransacEmail(email);
+    `,
+  });
 }
 
 // In-memory token store (sufficient for stateless reset; TTL = 15 min)
 const resetTokens = new Map<string, { userId: string; expiresAt: number }>();
 
 async function sendResetEmail(to: string, token: string) {
-  const brevoApi = new Brevo.TransactionalEmailsApi();
-  brevoApi.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, env.BREVO_API_KEY);
   const resetUrl = `https://forti-chain.vercel.app/auth/reset-password?token=${token}`;
-  const email = new Brevo.SendSmtpEmail();
-  email.sender = { email: env.EMAIL_FROM, name: 'FortiChain' };
-  email.to = [{ email: to }];
-  email.subject = '[FortiChain] Reset your password';
-  email.htmlContent = `
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender: { email: env.EMAIL_FROM, name: 'FortiChain' },
+    to: [{ email: to }],
+    subject: '[FortiChain] Reset your password',
+    htmlContent: `
     <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
       <div style="background:#0d1014;padding:24px;border-radius:8px 8px 0 0;border-bottom:1px solid #1c2229">
         <h1 style="color:#217eaa;margin:0;font-size:18px">&#x1F6E1; FortiChain</h1>
@@ -67,8 +65,8 @@ async function sendResetEmail(to: string, token: string) {
         <p style="color:#8ca4ac;font-size:11px;font-family:monospace">Or copy: ${resetUrl}</p>
       </div>
     </div>
-  `;
-  await brevoApi.sendTransacEmail(email);
+    `,
+  });
 }
 
 const RegisterSchema = z.object({
