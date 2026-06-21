@@ -17,6 +17,7 @@ import { publicStatsRoutes } from './routes/publicStats.js';
 import { adminRoutes } from './routes/admin.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { startWorkers } from './workers/index.js';
+import { pool } from './db/index.js';
 
 const app = Fastify({ logger: { transport: { target: 'pino-pretty' } } });
 
@@ -41,8 +42,17 @@ await app.register(rateLimit, {
   },
 });
 
-// Health check
-app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }));
+// Health check — verifies DB is reachable so Fly only marks the machine healthy when it's truly ready
+app.get('/health', async (_req, reply) => {
+  try {
+    const client = await pool.connect();
+    client.release();
+    return { status: 'ok', ts: new Date().toISOString() };
+  } catch {
+    reply.status(503);
+    return { status: 'error', error: 'db_unreachable', ts: new Date().toISOString() };
+  }
+});
 
 // Routes
 await app.register(authRoutes, { prefix: '/api/v1/auth' });
