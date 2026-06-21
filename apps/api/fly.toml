@@ -15,7 +15,7 @@ primary_region = "iad"
   GENLAYER_RPC_URL = "https://studio.genlayer.com/api"
   GENLAYER_CONTRACT_ADDRESS = "0xAbf8a0A08C73Faa30bA8717DDffb9328331Fec07"
   EMAIL_FROM = "preciousmofeoluwa@gmail.com"
-  BCRYPT_ROUNDS = "12"
+  BCRYPT_ROUNDS = "10"
 
 # Secrets (set via `fly secrets set KEY=value`):
 # DATABASE_URL        — Neon/Supabase/Fly Postgres connection string

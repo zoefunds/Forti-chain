@@ -1,4 +1,7 @@
-import { db, pool } from './index.js';
+import { db } from './index.js';
+import pg from 'pg';
+import { env } from '../config/env.js';
+const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 1 });
 import { users, protocols } from './schema.js';
 import bcrypt from 'bcrypt';
 import { ethers } from 'ethers';

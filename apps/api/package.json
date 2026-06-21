@@ -21,6 +21,7 @@
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.6",
     "@getbrevo/brevo": "^5.0.4",
+    "@neondatabase/serverless": "^1.1.0",
     "ajv": "^8.20.0",
     "axios": "^1.7.2",
     "bcrypt": "^5.1.1",

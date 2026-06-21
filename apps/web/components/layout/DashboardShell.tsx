@@ -47,7 +47,7 @@ function NotificationBell() {
     } catch {}
   }
 
-  usePolling(fetchNotifications, 10_000, true);
+  usePolling(fetchNotifications, 60_000, true);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -276,7 +276,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  usePolling(refreshBalance, 10_000, !!user);
+  usePolling(refreshBalance, 60_000, !!user);
 
   const genBalance = parseFloat(user?.genBalanceCache ?? '0');
   const emailUnverified = user && !(user as any).emailVerified;

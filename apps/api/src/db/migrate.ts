@@ -1,7 +1,10 @@
 import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { pool } from './index.js';
+import pg from 'pg';
+import { env } from '../config/env.js';
+
+const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 1 });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
